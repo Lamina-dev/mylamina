@@ -32,12 +32,44 @@ void LMXOpcodeEmitter::emit_mov_ri(std::vector<lmx::runtime::Op> &ops, uint8_t r
 void LMXOpcodeEmitter::emit_mov_rr(std::vector<lmx::runtime::Op> &ops, uint8_t r1, uint8_t r2) {
 
     if (r1 == r2) return;
-    if (ret_type == Reg) {
-        // 如果上一条指令的 目标寄存器 与本条指令的 源寄存器 相同
-        // 不生成新指令， 修改上条指令目标为本条目标
-        if (auto& last = ops.back(); last.operands[0] == r2) {
-            last.operands[0] = r1;
-            return;
+    // 只有当ret_type为Reg时才进行优化，并且上一条指令必须是返回Reg类型的指令
+    if (ret_type == Reg && !ops.empty()) {
+        // 检查上一条指令是否是返回Reg类型的指令
+        const auto& last_op = ops.back();
+        // 只对返回Reg类型的指令进行优化
+        bool is_reg_return_op = false;
+        switch (last_op.op) {
+            case lmx::runtime::Opcode::MOV_RI:
+            case lmx::runtime::Opcode::MOV_RR:
+            case lmx::runtime::Opcode::MOV_RC:
+            case lmx::runtime::Opcode::ADD:
+            case lmx::runtime::Opcode::SUB:
+            case lmx::runtime::Opcode::MUL:
+            case lmx::runtime::Opcode::DIV:
+            case lmx::runtime::Opcode::MOD:
+            case lmx::runtime::Opcode::POW:
+            case lmx::runtime::Opcode::CMP_GE:
+            case lmx::runtime::Opcode::CMP_LT:
+            case lmx::runtime::Opcode::CMP_LE:
+            case lmx::runtime::Opcode::CMP_GT:
+            case lmx::runtime::Opcode::CMP_EQ:
+            case lmx::runtime::Opcode::CMP_NE:
+            case lmx::runtime::Opcode::AND:
+            case lmx::runtime::Opcode::OR:
+            case lmx::runtime::Opcode::LOCAL_GET:
+                is_reg_return_op = true;
+                break;
+            default:
+                is_reg_return_op = false;
+                break;
+        }
+        // 只有当上一条指令是返回Reg类型的指令时才进行优化
+        if (is_reg_return_op) {
+            // 对于返回Reg类型的指令，operands[0]是目标寄存器
+            if (last_op.operands[0] == r2) {
+                ops.back().operands[0] = r1;
+                return;
+            }
         }
     }
     lmx::runtime::Op op(lmx::runtime::Opcode::MOV_RR);
@@ -255,6 +287,67 @@ void LMXOpcodeEmitter::emit_dec(std::vector<lmx::runtime::Op> &ops, uint8_t r) {
     runtime::Op op(runtime::Opcode::DEC);
     op.operands[0] = r;
     ops.push_back(op);
+}
+
+void LMXOpcodeEmitter::emit_mov_rm(std::vector<lmx::runtime::Op> &ops, uint8_t r1, uint8_t r2, int8_t offest) {
+    runtime::Op op(runtime::Opcode::MOV_RM);
+    op.operands[0] = r1;
+    op.operands[1] = r2;
+    op.operands[2] = static_cast<uint8_t>(offest);
+    ops.push_back(op);
+    ret_type = Reg;
+}
+
+void LMXOpcodeEmitter::emit_mov_mi(std::vector<lmx::runtime::Op> &ops, uint8_t r1, int8_t offest1, int64_t imm) {
+    runtime::Op op(runtime::Opcode::MOV_MI);
+    op.operands[0] = r1;
+    op.operands[1] = static_cast<uint8_t>(offest1);
+    write_imm(op.operands + 2, imm);
+    ops.push_back(op);
+    ret_type = None;
+}
+
+void LMXOpcodeEmitter::emit_mov_mr(std::vector<lmx::runtime::Op> &ops, uint8_t r1, int8_t offest1, uint8_t r2) {
+    runtime::Op op(runtime::Opcode::MOV_MR);
+    op.operands[0] = r1;
+    op.operands[1] = static_cast<uint8_t>(offest1);
+    op.operands[2] = r2;
+    ops.push_back(op);
+    ret_type = None;
+}
+
+void LMXOpcodeEmitter::emit_mov_mm(std::vector<lmx::runtime::Op> &ops, uint8_t r1, int8_t offest1, uint8_t r2, int8_t offest2) {
+    runtime::Op op(runtime::Opcode::MOV_MM);
+    op.operands[0] = r1;
+    op.operands[1] = static_cast<uint8_t>(offest1);
+    op.operands[2] = r2;
+    op.operands[3] = static_cast<uint8_t>(offest2);
+    ops.push_back(op);
+    ret_type = None;
+}
+
+void LMXOpcodeEmitter::emit_mov_mc(std::vector<lmx::runtime::Op> &ops, uint8_t r1, int8_t offest1, uint64_t idx) {
+    runtime::Op op(runtime::Opcode::MOV_MC);
+    op.operands[0] = r1;
+    op.operands[1] = static_cast<uint8_t>(offest1);
+    write_imm(op.operands + 2, std::bit_cast<int64_t>(idx));
+    ops.push_back(op);
+    ret_type = None;
+}
+
+void LMXOpcodeEmitter::emit_push(std::vector<lmx::runtime::Op>& ops, uint8_t reg) {
+    runtime::Op op(runtime::Opcode::PUSH);
+    op.operands[0] = reg;
+    ops.push_back(op);
+    ret_type = None;
+}
+
+void LMXOpcodeEmitter::emit_create_vector(std::vector<lmx::runtime::Op>& ops, uint8_t rd, uint8_t count) {
+    runtime::Op op(runtime::Opcode::CREATE_VECTOR);
+    op.operands[0] = rd;
+    op.operands[1] = count;
+    ops.push_back(op);
+    ret_type = Reg;
 }
 
 #undef getter_opt_code

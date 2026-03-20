@@ -4,11 +4,6 @@
 
 #include "parser.hpp"
 
-#include <format>
-#include <stack>
-
-#include "../include/opcode.hpp"
-
 namespace lmx {
 
 void Parser::parse_args(std::vector<std::shared_ptr<ASTNode>> &args) {
@@ -149,6 +144,70 @@ std::shared_ptr<ASTNode> Parser::parse_if() {
         }
     }
     return std::make_shared<IfStmtNode>(condition, then_block, else_block);
+}
+std::shared_ptr<VectorNode> Parser::parse_vector() {
+    // 期望 '['
+    if (!match(TokenType::LBRACK)) {
+        error("expected '[' at start of vector");
+        return nullptr;
+    }
+    advance();  // 跳过 '['
+
+    std::vector<std::shared_ptr<ExprNode>> elements;
+
+    // 处理空向量情况
+    if (match(TokenType::RBRACK)) {
+        advance();  // 跳过 ']'
+        return std::make_shared<VectorNode>(std::move(elements));
+    }
+
+    // 解析第一个元素
+    elements.push_back(parse_expr());
+
+    // 继续解析后续元素，直到遇到 ']'
+    while (!match(TokenType::RBRACK) && !is_eof()) {
+        // 必须有逗号分隔
+        if (!match(TokenType::COMMA)) {
+            error("expected ',' between vector elements");
+            // 错误恢复：尝试找到下一个逗号或右括号
+            while (!match(TokenType::COMMA) && !match(TokenType::RBRACK) && !is_eof()) {
+                advance();
+            }
+            // 如果找到逗号，跳过它并继续解析下一个元素
+            if (match(TokenType::COMMA)) {
+                advance();
+                if (!match(TokenType::RBRACK)) {
+                    elements.push_back(parse_expr());
+                }
+            }
+            continue;
+        }
+
+        advance();  // 跳过 ','
+
+        // 允许尾随逗号？例如 [1, 2, 3,]
+        if (match(TokenType::RBRACK)) {
+            break;
+        }
+
+        elements.push_back(parse_expr());
+    }
+
+    // 检查是否以 ']' 结尾
+    if (!match(TokenType::RBRACK)) {
+        error("expected ']' at end of vector");
+        // 尝试找到右括号来恢复
+        while (!match(TokenType::RBRACK) && !is_eof()) {
+            advance();
+        }
+        if (match(TokenType::RBRACK)) {
+            advance();
+        }
+        return std::make_shared<VectorNode>(std::move(elements)); // 仍返回已解析的部分
+    }
+
+    advance();  // 跳过 ']'
+    return std::make_shared<VectorNode>(std::move(elements));
 }
 std::shared_ptr<ASTNode> Parser::parse() {
     static bool in_func = false;
@@ -402,7 +461,10 @@ std::shared_ptr<ProgramASTNode> Parser::parse_program() {
 
 std::shared_ptr<ExprNode> Parser::factor() {
     std::shared_ptr<ExprNode> fact = nullptr;
-    if (match(TokenType::NUM_LITERAL)) {
+    if (match(TokenType::IDENTIFIER) && cur().text == "vec") {
+        advance();
+        fact = parse_vector();
+    } else if (match(TokenType::NUM_LITERAL)) {
         fact = std::make_shared<NumberNode>(cur().text);
         advance();
     } else if (match(TokenType::LPAREN)) {

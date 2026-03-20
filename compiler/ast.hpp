@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include <any>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -23,7 +24,7 @@ namespace lmx {
 
 enum ASTKind {
     Program,
-    Binary, Unary, NumLiteral, StringLiteral, BoolLiteral,
+    Binary, Unary, NumLiteral, StringLiteral, BoolLiteral, VectorLiteral,
     BlockStmt,
     IfStmt,
     VarDecl,
@@ -217,6 +218,12 @@ struct StringNode final : public ExprNode {
     explicit StringNode(std::string str)
         : ExprNode(ASTKind::StringLiteral), str(std::move(str)) {}
     ~StringNode() override = default;
+};
+
+struct VectorNode final : public ExprNode {
+    std::vector<std::shared_ptr<ExprNode>> elements;
+    explicit VectorNode(std::vector<std::shared_ptr<ExprNode>> elems)
+        : ExprNode(ASTKind::VectorLiteral), elements(std::move(elems)){}
 };
 
 struct BinaryNode final : public ExprNode {

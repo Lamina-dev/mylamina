@@ -13,6 +13,7 @@
 #include <ranges>
 #include <sstream>
 
+#include "debug.hpp"
 #include "../ast.hpp"
 
 #include "lmx_export.hpp"
@@ -34,6 +35,15 @@ public:
     size_t alloc(size_t i);
     void free(size_t i);
     bool is_free(size_t i);
+    void print_regs() const {
+        std::string regs_str = "Allocated registers: ";
+        for (size_t i = 0; i < REG_COUNT; i++) {
+            if (bitset.test(i)) {
+                regs_str += "r" + std::to_string(i) + " ";
+            }
+        }
+        DEBUG_LOG(regs_str);
+    }
 };
 class LMC_API Generator {
 
@@ -69,6 +79,8 @@ class LMC_API Generator {
     size_t gen_string(std::shared_ptr<ASTNode>& n);
 
     size_t gen_bool(std::shared_ptr<ASTNode>& n);
+
+    size_t gen_vector(std::shared_ptr<ASTNode>& n);
 
     size_t gen_block(std::shared_ptr<ASTNode>& n);
 
