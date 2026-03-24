@@ -9,3 +9,6 @@ endif()
 
 # Include common headers
 target_include_directories(lmc PUBLIC ${CMAKE_SOURCE_DIR}/include)
+
+# Link against runtime library
+target_link_libraries(lmc lmvm)

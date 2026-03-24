@@ -14,7 +14,10 @@ namespace lmx::runtime {
 Value::Value() : null(nullptr), type(ValueType::Ptr) {
 }
 
-Value::Value(void* p) : i64(*static_cast<int64_t*>(p)), type(ValueType::Ptr) {
+Value::Value(double n) : type(ValueType::Float), f64(n) {
+}
+
+Value::Value(void* p) : type(ValueType::Ptr), i64(*static_cast<int64_t*>(p)) {
 }
 
 Value& Value::operator=(void* new_ptr) {

@@ -42,14 +42,13 @@ void DynFunc::call(VirtualCore* vm) const {
     
     switch (ret_type) {
     case Void:      vm->get_register(0) = (void*)nullptr; dcCallVoid(caller, func); break;
-    case Char:      vm->get_register(0) = (uint8_t)dcCallChar(caller, func); break;
-    case Short:     vm->get_register(0) = (uint64_t)dcCallShort(caller, func); break;
-    case Int:       vm->get_register(0) = (uint64_t)dcCallInt(caller, func); break;
-    case LongLong:  vm->get_register(0) = (uint64_t)dcCallLongLong(caller, func); break;
-    case Float:     vm->get_register(0) = dcCallFloat(caller, func); break;
+    case Char:      vm->get_register(0) = static_cast<uint8_t>(dcCallChar(caller, func)); break;
+    case Short:     vm->get_register(0) = static_cast<uint64_t>(dcCallShort(caller, func)); break;
+    case Int:       vm->get_register(0) = static_cast<uint64_t>(dcCallInt(caller, func)); break;
+    case LongLong:  vm->get_register(0) = static_cast<uint64_t>(dcCallLongLong(caller, func)); break;
+    case Bool:      vm->get_register(0) = static_cast<bool>(dcCallBool(caller, func)); break;
     case Double:    vm->get_register(0) = dcCallDouble(caller, func); break;
     case Ptr:       vm->get_register(0) = dcCallPointer(caller, func); break;
-    case Bool:      vm->get_register(0) = (bool)dcCallBool(caller, func); break;
     default:
       dcArgPointer(caller, vm->get_register(reg).ptr);
       break;

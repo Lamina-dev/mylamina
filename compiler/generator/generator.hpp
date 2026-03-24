@@ -168,10 +168,12 @@ class LMC_API Generator {
      */
     std::unordered_map<
         std::string,
-        std::pair<size_t,
-            std::vector<    std::shared_ptr<TypeNode>   >
-        >> extern_funcs;
-    static inline runtime::CBasicTypes lmtype2ctype(std::string& lmt) {
+        std::pair<
+            size_t,
+            std::vector<std::shared_ptr<TypeNode>>
+        >
+    > extern_funcs;
+    static runtime::CBasicTypes lmtype2ctype(std::string& lmt) {
         if (lmt.empty()) return runtime::Void;
         if (lmt == "bool") return runtime::CBasicTypes::Bool;
         if (lmt == "num") return runtime::CBasicTypes::LongLong;
@@ -188,6 +190,9 @@ class LMC_API Generator {
 public:
     static bool node_has_error;
     Allocator regs;
+
+    void add_builtins() const;
+
     Generator();
     ~Generator() = default;
 

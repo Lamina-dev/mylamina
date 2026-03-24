@@ -16,6 +16,7 @@
 #include "opcode.hpp"
 #include "vmcall.hpp"
 #include "../common.hpp"
+#include "../../runtime/builtins.hpp"
 
 namespace lmx {
 bool Generator::node_has_error = false;
@@ -49,8 +50,26 @@ bool Allocator::is_free(size_t i) {
     return bitset.test(i);
 }
 
+void Generator::add_builtins() const {
+    // 从 builtins 命名空间添加内置常量到编译帧
+    size_t base_index = 64; // 从索引 64 开始
+    for (size_t i = 0; i < runtime::builtins::builtin_constants_count; i++) {
+        const auto& constant = runtime::builtins::builtin_constants[i];
+        cur.back()->new_var(constant.name, false, base_index);
+        base_index++;
+    }
+}
+
 Generator::Generator() {
     cur.push_back(std::make_unique<CompilingFrame>("global"));
+    
+    add_builtins();
+    
+    DEBUG_LOG("Added builtin constants to compiling frame");
+    DEBUG_LOG("Builtin constants in compiling frame:");
+    for (const auto& [name, info] : cur.back()->locals) {
+        DEBUG_LOG_FMT("  %s: index=%d, mutable=%s", name.c_str(), info.second, info.first ? "true" : "false");
+    }
 }
 void Generator::write(runtime::Op& op) {
     ops.push_back(op);
@@ -575,7 +594,7 @@ void Generator::write_binary_file(const std::string& path) {
 void Generator::print_ops(std::vector<runtime::Op>& ops) {
     size_t i = 0;
     for (auto &op: ops) {
-        printf("[0x%zx]\t", i++); // fix [0x%llx] the warning caused by
+        printf("[0x%zx]\t", i++);
         switch (op.op) {
             using enum runtime::Opcode;
         case MOV_RI: {
@@ -680,11 +699,11 @@ void Generator::print_ops(std::vector<runtime::Op>& ops) {
             break;
         }
         case LOCAL_GET: {
-            printf("LOCAL_GET: %u, [%u, 0x%x]\n", op.operands[0], op.operands[1], *(uint16_t*)(op.operands + 2));
+            printf("LOCAL_GET: %u, [%u, 0x%x]\n", op.operands[0], op.operands[1], *reinterpret_cast<uint16_t *>(op.operands + 2));
             break;
         }
         case LOCAL_SET: {
-            printf("LOCAL_SET: [%u, 0x%x], %u\n", op.operands[0], *(uint16_t*)(op.operands + 1), op.operands[3]);
+            printf("LOCAL_SET: [%u, 0x%x], %u\n", op.operands[0], *reinterpret_cast<uint16_t *>(op.operands + 1), op.operands[3]);
             break;
         }
         case FUNC_CREATE: {
@@ -704,12 +723,13 @@ void Generator::print_ops(std::vector<runtime::Op>& ops) {
             break;
         }
         case VMC: {
-            printf("VMC: %d\n", *(uint16_t*)op.operands);
+            printf("VMC: %d\n", *reinterpret_cast<uint16_t *>(op.operands));
             break;
         }
         case DEC: {
             printf("DEC: %u\n", op.operands[0]);
         }
+        default: ;
         }
     }
     std::cout << std::flush;

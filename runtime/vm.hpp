@@ -102,10 +102,12 @@ public:
     void set_reg_ptr(const size_t idx, void* np) { ste.regs[idx].ptr = np; }
     
     // 堆内存管理方法
-    size_t heap_size() const { return ste.heap.size(); }
+    [[nodiscard]] size_t heap_size() const { return ste.heap.size(); }
     Value& heap_at(size_t index) { return ste.heap[index]; }
-    const Value& heap_at(size_t index) const { return ste.heap[index]; }
+    [[nodiscard]] const Value& heap_at(size_t index) const { return ste.heap[index]; }
     void heap_push_back(const Value& value) { ste.heap.push_back(value); }
+
+    void insert_builtins();
 };
 
 }
