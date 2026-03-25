@@ -12,6 +12,8 @@
 #include <fstream>
 #include <iostream>
 
+#include "../include/error.hpp"
+
 #include "parser.hpp"
 
 namespace lmx {
@@ -23,7 +25,7 @@ namespace lmx {
     inline std::string read_file(const std::string& path) {
         std::ifstream file(path);
         if (!file.is_open()) {
-            std::cerr << "Failed to open file " << path << std::endl;
+            LM_ERROR("Failed to open file " + path);
             return {};
         }
         return {std::istreambuf_iterator{file}, std::istreambuf_iterator<char>{}};

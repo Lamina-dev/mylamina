@@ -8,6 +8,7 @@
 #include "../compiler/parser.hpp"
 #include "../compiler/generator/generator.hpp"
 #include "../runtime/vm.hpp"
+#include "../include/error.hpp"
 
 int binary_run(std::fstream&& file) {
     lmx::runtime::BinaryLoader loader{std::move(file)};
@@ -21,7 +22,7 @@ int file_run(const std::string& file_name) {
     uint32_t magic = 0;
     std::fstream file(file_name);
     if (!file.is_open()) {
-        std::cerr << "File not found: " << file_name << std::endl;
+        LM_ERROR("File not found: " + file_name);
         file.close();
         return -1;
     }

@@ -3,6 +3,7 @@
 //
 
 #include "parser.hpp"
+#include "../include/error.hpp"
 
 namespace lmx {
 
@@ -68,7 +69,7 @@ void Parser::check_eof() {
 }
 void Parser::error(const std::string& msg) {
     has_err = true;
-    std::cerr << "Error: " << msg << " at " << cur().line << ":" << cur().col << std::endl;
+    LM_ERROR(msg + " at " + std::to_string(cur().line) + ":" + std::to_string(cur().col));
 }
 std::shared_ptr<BlockStmtNode> Parser::parse_block() {
     if (!match(TokenType::LBRACE)) error("expected '{'");
