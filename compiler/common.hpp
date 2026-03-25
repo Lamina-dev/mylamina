@@ -26,7 +26,7 @@ namespace lmx {
             std::cerr << "Failed to open file " << path << std::endl;
             return {};
         }
-        return std::string(std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{});
+        return {std::istreambuf_iterator{file}, std::istreambuf_iterator<char>{}};
     }
     inline std::shared_ptr<ASTNode> compile(const std::string &path) {
         std::string code = read_file(path);

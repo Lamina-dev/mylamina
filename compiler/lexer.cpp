@@ -75,7 +75,7 @@ struct TokenPattern {
 // 优先级从高到低排序
 static const std::vector<TokenPattern> token_patterns = {
     {TokenType::COMMENT, "^#.*?$"},
-    {TokenType::STRING_LITERAL, "^\"(\\.|[^\\\"])*\""},
+    {TokenType::STRING_LITERAL, R"(^"(\.|[^\"])*")"},
     {TokenType::EQ, "^=="},
     {TokenType::NE, "^!="},
     {TokenType::GE, "^>="},
@@ -124,8 +124,6 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"false", TokenType::FALSE_LITERAL},
 };
 
-// 移除advance方法，因为我们将使用正则表达式匹配来更新位置
-
 Token Lexer::next() {
     // 跳过空白字符
     while (pos < src.size() && isspace(src[pos])) {
@@ -143,21 +141,21 @@ Token Lexer::next() {
     }
 
     // 提取当前位置开始的子串
-    std::string remaining = src.substr(pos);
+    const std::string remaining = src.substr(pos);
 
     // 尝试匹配所有token模式
     for (const auto& pattern : token_patterns) {
         std::smatch match;
         if (std::regex_search(remaining, match, pattern.pattern)) {
-            std::string matched_text = match.str(0);
-            size_t match_length = matched_text.size();
+            const std::string matched_text = match.str(0);
+            const size_t match_length = matched_text.size();
             
             // 保存当前位置信息
-            size_t token_line = line;
-            size_t token_col = col;
+            const size_t token_line = line;
+            const size_t token_col = col;
 
             // 更新位置信息
-            for (char c : matched_text) {
+            for (const char c : matched_text) {
                 if (c == '\n') {
                     line++;
                     col = 1;
@@ -178,7 +176,7 @@ Token Lexer::next() {
             // 处理字符串字面量（去除引号）
             if (pattern.type == TokenType::STRING_LITERAL) {
                 // 去除首尾引号
-                std::string unquoted = matched_text.substr(1, matched_text.size() - 2);
+                const std::string unquoted = matched_text.substr(1, matched_text.size() - 2);
                 // 处理转义字符
                 std::string processed;
                 for (size_t i = 0; i < unquoted.size(); i++) {
@@ -222,7 +220,7 @@ Token Lexer::next() {
     }
 
     // 无法识别的字符
-    char unknown_char = src[pos];
+    const char unknown_char = src[pos];
     Token token = {TokenType::UNKNOWN, std::string(1, unknown_char), line, col};
     pos++;
     col++;
@@ -242,8 +240,7 @@ std::vector<Token> Lexer::tokenize(const std::string& new_src) {
             tokens.push_back(t);
         }
     }
-    
-    // Add EOF token at the end
+
     tokens.push_back({TokenType::END_OF_FILE, "", line, col});
     
     return tokens;

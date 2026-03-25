@@ -11,7 +11,7 @@
 
 namespace lmx::runtime {
 
-Value::Value() : null(nullptr), type(ValueType::Ptr) {
+Value::Value() : type(ValueType::Ptr), null(nullptr) {
 }
 
 Value::Value(double n) : type(ValueType::Float), f64(n) {

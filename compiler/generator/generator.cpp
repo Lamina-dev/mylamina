@@ -46,16 +46,16 @@ void Allocator::free(size_t i) {
     }
 }
 
-bool Allocator::is_free(size_t i) {
+bool Allocator::is_free(const size_t i) const {
     return bitset.test(i);
 }
 
 void Generator::add_builtins() const {
     // 从 builtins 命名空间添加内置常量到编译帧
-    size_t base_index = 64; // 从索引 64 开始
+    size_t base_index = runtime::builtins::builtin_start;
     for (size_t i = 0; i < runtime::builtins::builtin_constants_count; i++) {
-        const auto& constant = runtime::builtins::builtin_constants[i];
-        cur.back()->new_var(constant.name, false, base_index);
+        const auto&[name, value] = runtime::builtins::builtin_constants[i];
+        cur.back()->new_var(name, false, base_index);
         base_index++;
     }
 }
@@ -121,7 +121,7 @@ size_t Generator::gen_program(std::shared_ptr<ASTNode> &n) {
     return last_ret;
 }
 size_t Generator::gen_loop(const std::shared_ptr<ASTNode> &shared) {
-    const auto node = std::static_pointer_cast<LoopNode>(std::move(shared));
+    const auto node = std::static_pointer_cast<LoopNode>(shared);
 
     size_t loop_cond = -1;
     if (node->condition) loop_cond = gen(node->condition);
@@ -614,13 +614,20 @@ void Generator::print_ops(std::vector<runtime::Op>& ops) {
             break;
         }
         case MOV_MI: {
-
+            printf("MOVMI: 0x%llu, %lld\n", *reinterpret_cast<uint64_t *>(op.operands), *reinterpret_cast<int64_t *>(op.operands + 1));
+            break;
         }
         case MOV_MM: {
+            printf("MOVMM: 0x%llu, 0x%llu\n", *reinterpret_cast<uint64_t *>(op.operands), *reinterpret_cast<uint64_t *>(op.operands + 1));
+            break;
         }
         case MOV_MR: {
+            printf("MOVMR: 0x%llu, %u\n", *reinterpret_cast<uint64_t *>(op.operands), op.operands[1]);
+            break;
         }
         case MOV_MC: {
+            printf("MOVMC: 0x%llu, 0x%llu\n", *reinterpret_cast<uint64_t *>(op.operands), *reinterpret_cast<uint64_t *>(op.operands + 1));
+            break;
         }
         case ADD: {
             printf("ADD: %u, %u, %u\n", op.operands[0], op.operands[1], op.operands[2]);

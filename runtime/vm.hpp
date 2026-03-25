@@ -41,7 +41,7 @@ class LMVM_API VirtualCore {
     LMXState ste;         // VM执行状态
 
     // 从常量池获取值
-    [[nodiscard]] Value* get_value_from_pool(size_t offest) const;
+    [[nodiscard]] Value* get_value_from_pool(size_t offset) const;
     
     // 检查寄存器索引是否有效
     [[nodiscard]] bool is_valid_register(uint8_t reg) const;

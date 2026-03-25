@@ -24,5 +24,5 @@
 
 #define LMX_VERSION     0x00000001
 #define LMX_MAGIC_NUM   0x4d4c5451
-const unsigned int lmx_magic = LMX_MAGIC_NUM;
-const unsigned int lmx_version = LMX_VERSION;
+constexpr unsigned int lmx_magic = LMX_MAGIC_NUM;
+constexpr unsigned int lmx_version = LMX_VERSION;

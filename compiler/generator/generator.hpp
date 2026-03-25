@@ -34,7 +34,7 @@ public:
     size_t alloc();
     size_t alloc(size_t i);
     void free(size_t i);
-    bool is_free(size_t i);
+    bool is_free(size_t i) const;
     void print_regs() const {
         std::string regs_str = "Allocated registers: ";
         for (size_t i = 0; i < REG_COUNT; i++) {

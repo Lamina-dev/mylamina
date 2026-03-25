@@ -64,7 +64,7 @@ size_t DynFunc::max_size() const {
 #else
         0;
 #endif
-    for (const auto& at : arg_type)
+    for ([[maybe_unused]] const auto& at : arg_type)
         size += 8;
     return size;
 }

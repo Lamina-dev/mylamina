@@ -11,7 +11,7 @@ struct BuiltinConstant {
 };
 
 // 内置常量数量
-inline int builtin_start = 64;
+inline int builtin_start = 0;
 extern LMVM_API size_t builtin_constants_count;
 extern LMVM_API const BuiltinConstant builtin_constants[];
 

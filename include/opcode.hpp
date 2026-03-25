@@ -34,7 +34,7 @@ enum class Opcode : uint8_t {
     CREATE_VECTOR,  // 创建向量指令
 };
 
-inline uint8_t opcode_len(Opcode op) {
+inline uint8_t opcode_len(const Opcode op) {
     switch (op) {
         using enum Opcode;
     case MOV_RI:
@@ -79,13 +79,13 @@ inline uint8_t opcode_len(Opcode op) {
 }
 
 struct Op {
-    Opcode op;
+    Opcode op{};
     uint8_t operands[12]{};
 
-    explicit inline Op(const Opcode op, const uint8_t* operand): op(op) {
+    explicit Op(const Opcode op, const uint8_t* operand): op(op) {
         memcpy(operands, operand, 12);
     }
-    explicit inline Op(const Opcode op): op(op) {}
-    explicit inline Op() = default;
+    explicit Op(const Opcode op): op(op) {}
+    explicit Op() = default;
 };
 } // namespace lmx
