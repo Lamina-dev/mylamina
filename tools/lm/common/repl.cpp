@@ -169,7 +169,7 @@ int run_repl() {
     lmx::runtime::VirtualCore core;
     core.set_program(&generator.ops);
 
-    const std::string prompt = ">>> ";
+    const std::string prompt = std::string(COLOR_MAGENTA) + ">>> " + COLOR_RESET;
     while (true) {
         std::cout << prompt << std::flush;
         if (!std::getline(std::cin, expr)) break;
@@ -186,7 +186,7 @@ int run_repl() {
             DEBUG_TOKEN_LIST(tks);
             
             // Parse and display AST
-            lmx::Parser parser(tks, expr);
+            lmx::Parser parser(tks, expr, "<shell#>");
             auto node = parser.parse();
             if (!node || parser.error()) continue;
             

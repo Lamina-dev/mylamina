@@ -67,7 +67,8 @@ void Parser::check_eof() {
         advance();
     }
 }
-void Parser::error(const std::string& msg) {
+
+void Parser::print_error(const std::string& msg) {
     has_err = true;
     const auto this_line = [&] {
         std::istringstream ss(code);
@@ -81,6 +82,8 @@ void Parser::error(const std::string& msg) {
         + std::to_string(cur().line)
         + ", column "
         + std::to_string(cur().col)
+        + ", in "
+        + src
         + "\n>>> "
         + this_line
         + "\n"
@@ -99,6 +102,11 @@ std::shared_ptr<BlockStmtNode> Parser::parse_block() {
     advance();
     return std::make_shared<BlockStmtNode>(stmts);
 }
+
+void Parser::error(const std::string& msg) {
+    throw ParserError(msg);
+}
+
 std::shared_ptr<ExprNode> Parser::parse_expr() {
     std::shared_ptr<ExprNode> node = parse_logical_and();
     std::shared_ptr<TypeNode> type;
@@ -141,7 +149,7 @@ std::shared_ptr<ExprNode> Parser::parse_relational() {
         advance();
         DEBUG_LOG(ITIS(cur().text, ));
         if (is_eof()) {
-            throw ParserError("Not expected: eof");
+            error("Not expected: eof");
         }
         DEBUG_LOG("not eof, it's: " + cur().text + "type: " + std::to_string(static_cast<int>(cur().type))
             + ", eof type: " + std::to_string(static_cast<int>(TokenType::END_OF_FILE)));
@@ -323,7 +331,7 @@ std::shared_ptr<ASTNode> Parser::parse() {
             }
        }
     } catch (ParserError &e) {
-        error("ParserError: " + std::string(e.what()));
+        print_error("ParserError: " + std::string(e.what()));
     }
     return node;
 }
@@ -477,6 +485,7 @@ std::shared_ptr<ExprNode> Parser::term() {
     while (match(TokenType::OPER_MUL) || match(TokenType::OPER_DIV) || match(TokenType::OPER_MOD) || match(TokenType::OPER_POW)) {
         auto op = cur().text;
         advance();
+    if (is_eof()) error("Unexpected eof");
         node = std::make_shared<BinaryNode>(node, factor(), op);
     }
     return node;
@@ -489,7 +498,7 @@ std::shared_ptr<ProgramASTNode> Parser::parse_program() {
             if (const auto stmt = parse()) stmts.push_back(stmt);
         }
     } catch (ParserError& e) {
-        error("ParserError:" + std::string(e.what()));
+        print_error("ParserError:" + std::string(e.what()));
     }
     DEBUG_LEAVE_FUNC();
     return std::make_shared<ProgramASTNode>(stmts);

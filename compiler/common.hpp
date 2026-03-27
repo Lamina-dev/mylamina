@@ -36,7 +36,7 @@ namespace lmx {
         Lexer lexer(code);
         auto tks = lexer.tokenize(code);
 
-        Parser parser(tks, code);
+        Parser parser(tks, code, path);
         if (auto node = parser.parse_program(); node && !parser.error()) return node;
         return nullptr;
     }

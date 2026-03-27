@@ -5,6 +5,7 @@
 #pragma once
 #include <iostream>
 #include <memory>
+#include <utility>
 
 #include "../include/lmx_export.hpp"
 #include "lexer.hpp"
@@ -17,6 +18,7 @@ class LMC_API Parser {
     bool has_err{false};
     std::vector<Token>& tokens;
     std::string code;
+    std::string src;
     size_t pos{0};
 
     void parse_args(std::vector<std::shared_ptr<ASTNode>> &args);
@@ -32,6 +34,9 @@ class LMC_API Parser {
 
     bool peek_match(TokenType type) const;
     void check_eof();
+
+    void print_error(const std::string &msg);
+
     void error(const std::string& msg);
 
     std::shared_ptr<BlockStmtNode> parse_block();
@@ -45,7 +50,7 @@ class LMC_API Parser {
     std::shared_ptr<ASTNode> parse_funcdecl(bool has_block);
 
 public:
-    explicit Parser(std::vector<Token>& tokens, const std::string& code): tokens(tokens), code(code) {}
+    explicit Parser(std::vector<Token>& tokens, std::string code, std::string src = "<unknown>"): tokens(tokens), code(std::move(code)), src(std::move(src)) {}
 
     std::shared_ptr<ASTNode> parse();
     std::shared_ptr<ASTNode> parse_module();
