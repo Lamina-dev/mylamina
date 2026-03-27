@@ -186,7 +186,7 @@ int run_repl() {
             DEBUG_TOKEN_LIST(tks);
             
             // Parse and display AST
-            lmx::Parser parser(tks);
+            lmx::Parser parser(tks, expr);
             auto node = parser.parse();
             if (!node || parser.error()) continue;
             

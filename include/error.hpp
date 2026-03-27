@@ -1,14 +1,7 @@
-//
-// 错误报告系统
-// 提供标准的错误报告接口
-//
-
 #pragma once
 
 #include <string>
-#include <source_location>
-
-#include "lmx_export.hpp"
+#include <utility>
 
 namespace lmx {
 
@@ -25,7 +18,16 @@ inline void error_reporter(const ErrorType type, const std::string& message) {
     if (type == ErrorType::ERR) std::cerr << "Error: " << message << std::endl;
 }
 
-// 便捷宏
-#define LM_ERROR(msg) error_reporter(lmx::ErrorType::ERR, msg)
+inline void LM_ERROR(const std::string& msg) {
+    error_reporter(ErrorType::ERR, msg);
+}
 
+class ParserError final : public std::runtime_error {
+public:
+    explicit ParserError(
+        const std::string& msg
+    ): std::runtime_error(msg) {}
+};
+
+#define ITIS(x, convert) (std::string(#x " = <") + convert(x) + std::string(">"))
 } // lmx

@@ -22,7 +22,7 @@ int file_run(const std::string& file_name) {
     uint32_t magic = 0;
     std::fstream file(file_name);
     if (!file.is_open()) {
-        LM_ERROR("File not found: " + file_name);
+        lmx::LM_ERROR("File not found: " + file_name);
         file.close();
         return -1;
     }
@@ -32,7 +32,7 @@ int file_run(const std::string& file_name) {
     auto src = std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
     lmx::Lexer lexer(src);
     auto ts = lexer.tokenize(src);
-    lmx::Parser parser(ts);
+    lmx::Parser parser(ts, src);
     lmx::Generator gener;
     std::shared_ptr<lmx::ASTNode> node = parser.parse_program();
     if (!node || parser.error()) return -1;

@@ -16,6 +16,7 @@ class LMC_API Parser {
     bool in_module{false};
     bool has_err{false};
     std::vector<Token>& tokens;
+    std::string code;
     size_t pos{0};
 
     void parse_args(std::vector<std::shared_ptr<ASTNode>> &args);
@@ -44,7 +45,7 @@ class LMC_API Parser {
     std::shared_ptr<ASTNode> parse_funcdecl(bool has_block);
 
 public:
-    explicit Parser(std::vector<Token>& tokens): tokens(tokens) {}
+    explicit Parser(std::vector<Token>& tokens, const std::string& code): tokens(tokens), code(code) {}
 
     std::shared_ptr<ASTNode> parse();
     std::shared_ptr<ASTNode> parse_module();

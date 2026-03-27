@@ -3,6 +3,8 @@
 //
 
 #include "parser.hpp"
+
+#include "debug.hpp"
 #include "../include/error.hpp"
 
 namespace lmx {
@@ -56,20 +58,35 @@ bool Parser::match(TokenType t) const {
 }
 
 bool Parser::is_eof() const {
-    return pos >= tokens.size();
+    DEBUG_LOG(ITIS(pos, std::to_string) << ", " << ITIS(tokens.size(), std::to_string));
+    return pos >= tokens.size() - 1;
 }
 
 void Parser::check_eof() {
     while (!is_eof() && match(TokenType::END_OF_FILE)) {
         advance();
     }
-    //if (!is_eof()) {
-    //    error("Expected end of file");
-    //}
 }
 void Parser::error(const std::string& msg) {
     has_err = true;
-    LM_ERROR(msg + " at " + std::to_string(cur().line) + ":" + std::to_string(cur().col));
+    const auto this_line = [&] {
+        std::istringstream ss(code);
+        std::string l;
+        for (size_t i = 0; i < cur().col; i ++)
+            std::getline(ss, l); return l;
+    }();
+    DEBUG_LOG(ITIS(code, ) << ", " << ITIS(this_line, ));
+    LM_ERROR(msg
+        + "\nat line "
+        + std::to_string(cur().line)
+        + ", column "
+        + std::to_string(cur().col)
+        + "\n>>> "
+        + this_line
+        + "\n"
+        + std::string(cur().col + 3, ' ')
+        + "^"
+    );
 }
 std::shared_ptr<BlockStmtNode> Parser::parse_block() {
     if (!match(TokenType::LBRACE)) error("expected '{'");
@@ -118,10 +135,18 @@ std::shared_ptr<ExprNode> Parser::parse_logical_or() {
 std::shared_ptr<ExprNode> Parser::parse_relational() {
     std::shared_ptr<ExprNode> node = expr();
     while (match(TokenType::EQ) || match(TokenType::LT) || match(TokenType::GT) ||
-        match(TokenType::LE) || match(TokenType::GE) || match(TokenType::NE)    ) {
+        match(TokenType::LE) || match(TokenType::GE) || match(TokenType::NE)) {
         auto op = cur().text;
+        DEBUG_LOG(ITIS(op, ));
         advance();
-        node = std::make_shared<BinaryNode>(node, parse_expr(), op);
+        DEBUG_LOG(ITIS(cur().text, ));
+        if (is_eof()) {
+            throw ParserError("Not expected: eof");
+        }
+        DEBUG_LOG("not eof, it's: " + cur().text + "type: " + std::to_string(static_cast<int>(cur().type))
+            + ", eof type: " + std::to_string(static_cast<int>(TokenType::END_OF_FILE)));
+        auto a = parse_expr();
+        node = std::make_shared<BinaryNode>(node, a, op);
     }
     return node;
 }
@@ -214,87 +239,91 @@ std::shared_ptr<ASTNode> Parser::parse() {
     static bool in_func = false;
     static bool in_loop = false;
     std::shared_ptr<ASTNode> node;
-    re_parse:
-    switch (cur().type) {
-    case TokenType::COMMENT: advance(); goto re_parse;
-    case TokenType::KW_LET: {
-        advance();
-        if (!match(TokenType::IDENTIFIER)) error("expected identifier");
-        auto name = cur().text;
-        advance();
-        if (!match(TokenType::ASSIGN)) error("expected assignment");
-        advance();
-        node = std::make_shared<VarDeclNode>(name, parse_expr(), false);
-        break;
-    }
-    case TokenType::KW_FUNC: {
-        advance();
-        in_func = true;
-        node = parse_funcdecl(true);
-        in_func = false;
-        break;
-    }
-    case TokenType::KW_RETURN: {
-        if (!in_func) error("expected 'return'");
+    try {
+       re_parse:
+       switch (cur().type) {
+            case TokenType::COMMENT: advance(); goto re_parse;
+            case TokenType::KW_LET: {
+                advance();
+                if (!match(TokenType::IDENTIFIER)) error("expected identifier");
+                auto name = cur().text;
+                advance();
+                if (!match(TokenType::ASSIGN)) error("expected assignment");
+                advance();
+                node = std::make_shared<VarDeclNode>(name, parse_expr(), false);
+                break;
+            }
+            case TokenType::KW_FUNC: {
+                advance();
+                in_func = true;
+                node = parse_funcdecl(true);
+                in_func = false;
+                break;
+            }
+            case TokenType::KW_RETURN: {
+                if (!in_func) error("expected 'return'");
 
-        auto line = cur().line;
-        advance();
-        if (cur().line > line) {
-            node = std::make_shared<ReturnStmtNode>(nullptr);
-        } else {
-            auto e = parse_expr();
+                auto line = cur().line;
+                advance();
+                if (cur().line > line) {
+                    node = std::make_shared<ReturnStmtNode>(nullptr);
+                } else {
+                    auto e = parse_expr();
 
-            node = std::make_shared<ReturnStmtNode>(e);
-        }
-        break;
-    }
-    case TokenType::KW_LOOP: {
-        advance();
-        std::shared_ptr<ExprNode> cond = nullptr;
-        if (!match(TokenType::LBRACE))
-            cond = parse_expr();
-        in_loop = true;
-        auto block = parse_block();
-        node = std::make_shared<LoopNode>(cond, block);
-        in_loop = false;
-        break;
-    }
-    case TokenType::KW_BREAK: {
-        advance();
-        if (!in_loop) error("expected 'break', but not in loop");
-        node = std::make_shared<BreakNode>();
-        break;
-    }
-    case TokenType::KW_CONTINUE: {
-        advance();
-        if (!in_loop) error("expected 'continue', but not in loop");
-        node = std::make_shared<ContinueNode>();
-        break;
-    }
-    case TokenType::KW_IF: {
-        advance();
-        node = parse_if();
-        break;
-    }
-    case TokenType::KW_MODULE: {
-        advance();
-        node = parse_module();
-        break;
-    }
-    case TokenType::KW_USE: {
-        advance();
-        auto path = parse_string();
-        break;
-    }
-    default: {
-        if (match(TokenType::IDENTIFIER) && peek_match(TokenType::ASSIGN)) {
-            auto name = cur().text;
-            advance();
-            advance();
-            node = std::make_shared<VarDeclNode>(name, parse_expr());
-        } else node = parse_expr();
-        break;
-    }
+                    node = std::make_shared<ReturnStmtNode>(e);
+                }
+                break;
+            }
+            case TokenType::KW_LOOP: {
+                advance();
+                std::shared_ptr<ExprNode> cond = nullptr;
+                if (!match(TokenType::LBRACE))
+                    cond = parse_expr();
+                in_loop = true;
+                auto block = parse_block();
+                node = std::make_shared<LoopNode>(cond, block);
+                in_loop = false;
+                break;
+            }
+            case TokenType::KW_BREAK: {
+                advance();
+                if (!in_loop) error("expected 'break', but not in loop");
+                node = std::make_shared<BreakNode>();
+                break;
+            }
+            case TokenType::KW_CONTINUE: {
+                advance();
+                if (!in_loop) error("expected 'continue', but not in loop");
+                node = std::make_shared<ContinueNode>();
+                break;
+            }
+            case TokenType::KW_IF: {
+                advance();
+                node = parse_if();
+                break;
+            }
+            case TokenType::KW_MODULE: {
+                advance();
+                node = parse_module();
+                break;
+            }
+            case TokenType::KW_USE: {
+                advance();
+                auto path = parse_string();
+                break;
+            }
+            default: {
+                if (match(TokenType::IDENTIFIER) && peek_match(TokenType::ASSIGN)) {
+                    auto name = cur().text;
+                    advance();
+                    advance();
+                    node = std::make_shared<VarDeclNode>(name, parse_expr());
+                } else node = parse_expr();
+                break;
+            }
+       }
+    } catch (ParserError &e) {
+        error("ParserError: " + std::string(e.what()));
     }
     return node;
 }
@@ -453,10 +482,16 @@ std::shared_ptr<ExprNode> Parser::term() {
     return node;
 }
 std::shared_ptr<ProgramASTNode> Parser::parse_program() {
+    DEBUG_ENTER_FUNC();
     std::vector<std::shared_ptr<ASTNode>> stmts;
-    while (!match(TokenType::RBRACE) && !is_eof()) {
-        if (const auto stmt = parse()) stmts.push_back(stmt);
+    try {
+        while (!is_eof()) {
+            if (const auto stmt = parse()) stmts.push_back(stmt);
+        }
+    } catch (ParserError& e) {
+        error("ParserError:" + std::string(e.what()));
     }
+    DEBUG_LEAVE_FUNC();
     return std::make_shared<ProgramASTNode>(stmts);
 }
 
