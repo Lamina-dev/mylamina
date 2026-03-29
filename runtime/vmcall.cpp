@@ -51,7 +51,7 @@ VMC_REGISTER(dyn_set) {
     const auto args_type_p = static_cast<CBasicTypes *>(self->get_register(REG_COUNT_INDEX_MAX - 2).ptr);
     static_cast<DynLib*>(self->get_register(REG_COUNT_INDEX_MAX).ptr)->set_func(
         self->get_register(REG_COUNT_INDEX_MAX - 1).str,
-        std::vector<CBasicTypes>(
+        std::vector(
             args_type_p,
             args_type_p + self->get_register(REG_COUNT_INDEX_MAX - 3).u64),
             *static_cast<CBasicTypes *>(self->get_register(REG_COUNT_INDEX_MAX - 4).ptr)
@@ -78,13 +78,11 @@ VMC_REGISTER(dyn_call) {
  *
  * return: memory_ptr in r0
  */
-// VMC 6: 分配内存
 VMC_REGISTER(alloc_memory) {
     size_t slots = self->get_register(0).u64;
 
     size_t memory_start = self->heap_size();
 
-    // 分配 slots 个 Value，初始化为 Null
     for (size_t i = 0; i < slots; i++) {
         Value value;
         value.type = ValueType::Null;
@@ -92,10 +90,9 @@ VMC_REGISTER(alloc_memory) {
         self->heap_push_back(value);
     }
 
-    // 返回起始索引（指针）
     Value memory_ptr;
     memory_ptr.type = ValueType::Ptr;
-    memory_ptr.u64 = memory_start;      // 存的是堆索引
+    memory_ptr.u64 = memory_start;
     self->get_register(0) = memory_ptr;
 
     DEBUG_LOG("VMC[6]: allocated " << slots << " slots at heap[" << memory_start << "]");
@@ -110,23 +107,18 @@ VMC_REGISTER(alloc_memory) {
  * 存储值到指定内存地址
  */
 VMC_REGISTER(store_memory) {
-    size_t memory_ptr = self->get_register(0).u64;
-    size_t offset = self->get_register(1).u64;
-    Value value = self->get_register(2);
+    const size_t memory_ptr = self->get_register(0).u64;
+    const size_t offset = self->get_register(1).u64;
+    const Value value = self->get_register(2);
     
-    // 检查内存指针是否有效
     if (memory_ptr >= self->heap_size()) {
-        // 无效的内存指针
         return;
     }
     
-    // 检查偏移量是否有效
     if (memory_ptr + offset >= self->heap_size()) {
-        // 无效的偏移量
         return;
     }
     
-    // 存储值
     self->heap_at(memory_ptr + offset) = value;
 }
 

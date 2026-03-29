@@ -7,16 +7,13 @@
 #include "../compiler/ast.hpp"
 #include "../../../include/debug.hpp"
 
-// Function to print AST nodes
 void print_ast(const std::shared_ptr<lmx::ASTNode>& node, int indent = 0) {
     if (!node) return;
     
-    // Print indentation
     for (int i = 0; i < indent; i++) {
         std::cerr << "  ";
     }
     
-    // Print node type and information based on kind
     switch (node->kind) {
         case lmx::ASTKind::Program:
             std::cerr << "Program" << std::endl;
@@ -131,7 +128,6 @@ void print_ast(const std::shared_ptr<lmx::ASTNode>& node, int indent = 0) {
             {
                 auto module = dynamic_cast<lmx::ModuleNode*>(node.get());
                 std::cerr << "Module(" << module->name << ")" << std::endl;
-                // Print children if needed
             }
             break;
         case lmx::ASTKind::Use:
@@ -213,24 +209,18 @@ int run_repl() {
 
             if (op != -1 && result == 0) {
                 generator.regs.free(op);
-                // 检查返回值的类型
                 auto& value = core.get_register(op);
                 if (value.type == lmx::runtime::ValueType::Null) {
-                    // 如果是null，则不显示
                 } else if (value.type == lmx::runtime::ValueType::Ptr) {
-                    // 对于向量类型，打印向量的地址和长度
                     size_t vector_ptr = value.i64;
                     size_t vector_size = core.heap_at(vector_ptr).i64;
                     std::cout << "vec[";
                     for (size_t i = 0; i < vector_size; i++) {
                         if (i > 0) std::cout << ", ";
-                        // 根据元素类型显示
                         auto& elem = core.heap_at(vector_ptr + 1 + i);
                         if (elem.type == lmx::runtime::ValueType::Ptr) {
-                            // 检查是否是向量
                             size_t elem_ptr = elem.u64;
                             size_t elem_size = core.heap_at(elem_ptr).i64;
-                            // 递归显示向量
                             std::cout << "vec[";
                             for (size_t j = 0; j < elem_size; j++) {
                                 if (j > 0) std::cout << ", ";
@@ -285,7 +275,6 @@ int run_repl() {
                     }
                     std::cout << "]" << std::endl;
                 } else {
-                    // 对于其他类型，根据类型正确显示
                     switch (value.type) {
                         case lmx::runtime::ValueType::Int:
                             std::cout << value.i64 << std::endl;

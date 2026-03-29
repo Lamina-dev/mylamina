@@ -34,11 +34,8 @@ void LMXOpcodeEmitter::emit_mov_ri(std::vector<lmx::runtime::Op> &ops, uint8_t r
 void LMXOpcodeEmitter::emit_mov_rr(std::vector<lmx::runtime::Op> &ops, uint8_t r1, uint8_t r2) {
 
     if (r1 == r2) return;
-    // 只有当ret_type为Reg时才进行优化，并且上一条指令必须是返回Reg类型的指令
     if (ret_type == Reg && !ops.empty()) {
-        // 检查上一条指令是否是返回Reg类型的指令
         const auto& last_op = ops.back();
-        // 只对返回Reg类型的指令进行优化
         bool is_reg_return_op = false;
         switch (last_op.op) {
             case lmx::runtime::Opcode::MOV_RI:
@@ -65,9 +62,7 @@ void LMXOpcodeEmitter::emit_mov_rr(std::vector<lmx::runtime::Op> &ops, uint8_t r
                 is_reg_return_op = false;
                 break;
         }
-        // 只有当上一条指令是返回Reg类型的指令时才进行优化
         if (is_reg_return_op) {
-            // 对于返回Reg类型的指令，operands[0]是目标寄存器
             if (last_op.operands[0] == r2) {
                 ops.back().operands[0] = r1;
                 return;

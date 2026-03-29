@@ -180,34 +180,27 @@ std::shared_ptr<ASTNode> Parser::parse_if() {
     return std::make_shared<IfStmtNode>(condition, then_block, else_block);
 }
 std::shared_ptr<VectorNode> Parser::parse_vector() {
-    // 期望 '['
     if (!match(TokenType::LBRACK)) {
         error("expected '[' at start of vector");
         return nullptr;
     }
-    advance();  // 跳过 '['
+    advance();
 
     std::vector<std::shared_ptr<ExprNode>> elements;
 
-    // 处理空向量情况
     if (match(TokenType::RBRACK)) {
-        advance();  // 跳过 ']'
+        advance();
         return std::make_shared<VectorNode>(std::move(elements));
     }
 
-    // 解析第一个元素
     elements.push_back(parse_expr());
 
-    // 继续解析后续元素，直到遇到 ']'
     while (!match(TokenType::RBRACK) && !is_eof()) {
-        // 必须有逗号分隔
         if (!match(TokenType::COMMA)) {
             error("expected ',' between vector elements");
-            // 错误恢复：尝试找到下一个逗号或右括号
             while (!match(TokenType::COMMA) && !match(TokenType::RBRACK) && !is_eof()) {
                 advance();
             }
-            // 如果找到逗号，跳过它并继续解析下一个元素
             if (match(TokenType::COMMA)) {
                 advance();
                 if (!match(TokenType::RBRACK)) {
@@ -217,9 +210,8 @@ std::shared_ptr<VectorNode> Parser::parse_vector() {
             continue;
         }
 
-        advance();  // 跳过 ','
+        advance();
 
-        // 允许尾随逗号？例如 [1, 2, 3,]
         if (match(TokenType::RBRACK)) {
             break;
         }
@@ -227,20 +219,18 @@ std::shared_ptr<VectorNode> Parser::parse_vector() {
         elements.push_back(parse_expr());
     }
 
-    // 检查是否以 ']' 结尾
     if (!match(TokenType::RBRACK)) {
         error("expected ']' at end of vector");
-        // 尝试找到右括号来恢复
         while (!match(TokenType::RBRACK) && !is_eof()) {
             advance();
         }
         if (match(TokenType::RBRACK)) {
             advance();
         }
-        return std::make_shared<VectorNode>(std::move(elements)); // 仍返回已解析的部分
+        return std::make_shared<VectorNode>(std::move(elements));
     }
 
-    advance();  // 跳过 ']'
+    advance();
     return std::make_shared<VectorNode>(std::move(elements));
 }
 std::shared_ptr<ASTNode> Parser::parse() {
@@ -446,12 +436,12 @@ std::shared_ptr<ASTNode> Parser::parse_funcdecl(const bool has_block = true) {
         }
     }
     check_type(ret_type =)
-    if (match(TokenType::LBRACE)) {    // 一般 定义情况
+    if (match(TokenType::LBRACE)) {
         auto node = std::make_shared<FuncDeclNode>(name, params, parse_block());
         node->args_type = std::move(args_type);
         node->ret_type = std::move(ret_type);
         return node;
-    } else if (match(TokenType::ASSIGN)) {  // 外部导入情况
+    } else if (match(TokenType::ASSIGN)) {
         advance();
         if (!match(TokenType::STRING_LITERAL)) {
             error("expected string literal");
@@ -463,7 +453,7 @@ std::shared_ptr<ASTNode> Parser::parse_funcdecl(const bool has_block = true) {
         node->args_type = std::move(args_type);
         node->ret_type = std::move(ret_type);
         return node;
-    } else {    // 仅声明情况
+    } else {
         auto node = std::make_shared<FuncDeclNode>(name, params, nullptr);
         node->args_type = std::move(args_type);
         node->ret_type = std::move(ret_type);

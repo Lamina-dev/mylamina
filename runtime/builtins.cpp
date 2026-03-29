@@ -2,7 +2,6 @@
 
 namespace lmx::runtime::builtins {
     const BuiltinConstant builtin_constants[] = {
-        // 物理常量
         {"EARTH_GRAVITY", Value(9.80665)},
         {"MOON_GRAVITY", Value(1.625)},
         {"MARS_GRAVITY", Value(3.72076)},
@@ -16,7 +15,6 @@ namespace lmx::runtime::builtins {
         {"KB", Value(1.380649e-23)},
         {"EPSILON_0", Value(8.8541878128e-12)},
         {"MU_0", Value(1.25663706212e-6)},
-        // 化学常量
         {"AVOGADRO", Value(6.02214076e23)},
         {"R", Value(8.314462618)},
         {"FARADAY", Value(9.648533212e4)},

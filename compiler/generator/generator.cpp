@@ -51,7 +51,6 @@ bool Allocator::is_free(const size_t i) const {
 }
 
 void Generator::add_builtins() const {
-    // 从 builtins 命名空间添加内置常量到编译帧
     size_t base_index = runtime::builtins::builtin_start;
     for (size_t i = 0; i < runtime::builtins::builtin_constants_count; i++) {
         const auto&[name, value] = runtime::builtins::builtin_constants[i];
@@ -170,7 +169,7 @@ size_t Generator::gen_break(std::shared_ptr<ASTNode> &n) {
 size_t Generator::gen_module(std::shared_ptr<ASTNode> &shared) {
     const auto node = std::static_pointer_cast<ModuleNode>(std::move(shared));
     for (const auto& mn : modules)
-        if (mn == node->name) return -1;    //已解析过同名模块，不再解析
+        if (mn == node->name) return -1;
 
 
     if (node->type == ModuleNode::Types::dyn) {
@@ -365,7 +364,7 @@ size_t Generator::gen_function(std::shared_ptr<ASTNode> &n) {
             error("the function args name `" + arg + "` was defined on last scope");
         }
     }
-    new_func(node->name, args_count); //函数不做作用域区分，全部全局
+    new_func(node->name, args_count);
     for (size_t i = 0; i < args_count ; i++) {
         LMXOpcodeEmitter::emit_local_set(ops, cur.size() - 1, i,  REG_COUNT_INDEX_MAX - i);
         cur.back()->new_var(node->args[i], true, i);
@@ -488,20 +487,17 @@ size_t Generator::gen_vector(std::shared_ptr<ASTNode> &n) {
     DEBUG_LOG("gen vector");
     regs.print_regs();
 
-    // 1. 计算向量的大小
     const size_t vector_size = node->elements.size();
     DEBUG_LOG("vector_size: " << vector_size);
 
-    // 2. 为所有元素生成代码，获取它们的值到寄存器
     std::vector<size_t> elem_regs;
     elem_regs.reserve(node->elements.size());
     
     for (auto& elem : node->elements) {
         std::shared_ptr<ASTNode> elem_node = elem;
         DEBUG_LOG("Now processing: " << elem_node->kind << ": " << elem_node);
-        auto reg = gen(elem_node);  // 生成元素代码，返回存放结果的寄存器
+        auto reg = gen(elem_node);
         if (reg == -1) {
-            // 如果生成元素代码时出错，设置错误标志并返回
             node_has_error = true;
             return -1;
         }
@@ -511,31 +507,26 @@ size_t Generator::gen_vector(std::shared_ptr<ASTNode> &n) {
         regs.print_regs();
     }
     
-    // 3. 将求解后的值依次压栈
     for (auto reg : elem_regs) {
         LMXOpcodeEmitter::emit_push(ops, reg);
         DEBUG_LOG("Pushed r" << reg << " to stack");
     }
     
-    // 4. 调用 CREATE_VECTOR 字节码
-    // 参数: 目标寄存器, 元素个数
-    auto result_reg = regs.alloc();  // 分配结果寄存器
+    auto result_reg = regs.alloc();
     LMXOpcodeEmitter::emit_create_vector(ops, result_reg, vector_size);
     DEBUG_LOG("CREATE_VECTOR r" << result_reg << ", " << vector_size);
     
-    // 5. 释放元素寄存器
     for (const auto reg : elem_regs) {
         regs.free(reg);
         DEBUG_LOG("Freed register: " << reg);
         regs.print_regs();
     }
     
-    // 6. 标记返回寄存器需要在使用后释放
     expr_release = true;
     
     DEBUG_LOG("gen_vector finished, returning result_reg: " << result_reg);
     regs.print_regs();
-    return result_reg;  // 返回结果寄存器的索引
+    return result_reg;
 }
 
 size_t Generator::gen_block(std::shared_ptr<ASTNode> &n) {
