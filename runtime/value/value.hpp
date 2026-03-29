@@ -37,7 +37,6 @@ struct LMVM_API Value {
     };
     explicit Value(void* p);
     Value();
-    explicit Value(double n);
     Value(const Value& other) = default;
     template<class T>
     T& get();

@@ -18,9 +18,9 @@
 std::filesystem::path get_executable_path() {
 #ifdef _WIN32
     char buffer[MAX_PATH];
-    const DWORD length = GetModuleFileNameA(nullptr, buffer, MAX_PATH);
+    DWORD length = GetModuleFileNameA(nullptr, buffer, MAX_PATH);
     if (length > 0) {
-        return {buffer};
+        return std::filesystem::path(buffer);
     }
 
 #elif defined(__APPLE__)

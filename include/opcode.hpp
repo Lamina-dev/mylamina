@@ -1,4 +1,4 @@
-//
+﻿//
 // Created by geguj on 2025/12/27.
 //
 
@@ -30,11 +30,9 @@ enum class Opcode : uint8_t {
     AND, OR,
     VMC,  // vmcall
     DEC,
-    PUSH,  // 压栈指令
-    CREATE_VECTOR,  // 创建向量指令
 };
 
-inline uint8_t opcode_len(const Opcode op) {
+inline uint8_t opcode_len(Opcode op) {
     switch (op) {
         using enum Opcode;
     case MOV_RI:
@@ -72,20 +70,18 @@ inline uint8_t opcode_len(const Opcode op) {
     case DEC: return 1;
     case JMP: return 8;
     case DEBUG_LOG: return 9;
-    case PUSH: return 1;  // 压栈指令长度：1个寄存器
-    case CREATE_VECTOR: return 2;  // 创建向量指令长度：1个目标寄存器 + 1个立即数（元素数量）;
     }
     return 0;
 }
 
 struct Op {
-    Opcode op{};
+    Opcode op;
     uint8_t operands[12]{};
 
-    explicit Op(const Opcode op, const uint8_t* operand): op(op) {
+    explicit inline Op(const Opcode op, const uint8_t* operand): op(op) {
         memcpy(operands, operand, 12);
     }
-    explicit Op(const Opcode op): op(op) {}
-    explicit Op() = default;
+    explicit inline Op(const Opcode op): op(op) {}
+    explicit inline Op() = default;
 };
 } // namespace lmx
