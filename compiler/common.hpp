@@ -12,6 +12,8 @@
 #include <fstream>
 #include <iostream>
 
+#include "../include/error.hpp"
+
 #include "parser.hpp"
 
 namespace lmx {
@@ -23,10 +25,10 @@ namespace lmx {
     inline std::string read_file(const std::string& path) {
         std::ifstream file(path);
         if (!file.is_open()) {
-            std::cerr << "Failed to open file " << path << std::endl;
+            LM_ERROR("Failed to open file " + path);
             return {};
         }
-        return std::string(std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{});
+        return {std::istreambuf_iterator{file}, std::istreambuf_iterator<char>{}};
     }
     inline std::shared_ptr<ASTNode> compile(const std::string &path) {
         std::string code = read_file(path);
@@ -34,7 +36,7 @@ namespace lmx {
         Lexer lexer(code);
         auto tks = lexer.tokenize(code);
 
-        Parser parser(tks);
+        Parser parser(tks, code, path);
         if (auto node = parser.parse_program(); node && !parser.error()) return node;
         return nullptr;
     }

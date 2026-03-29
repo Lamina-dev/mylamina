@@ -11,10 +11,13 @@
 
 namespace lmx::runtime {
 
-Value::Value() : null(nullptr), type(ValueType::Ptr) {
+Value::Value() : type(ValueType::Ptr), null(nullptr) {
 }
 
-Value::Value(void* p) : i64(*static_cast<int64_t*>(p)), type(ValueType::Ptr) {
+Value::Value(double n) : type(ValueType::Float), f64(n) {
+}
+
+Value::Value(void* p) : type(ValueType::Ptr), i64(*static_cast<int64_t*>(p)) {
 }
 
 Value& Value::operator=(void* new_ptr) {
@@ -59,7 +62,10 @@ Value& Value::operator=(const Value& rhs) {
         case ValueType::Float: this->f64 = rhs.f64; break;
         case ValueType::Str: this->str = rhs.str; break;
         case ValueType::Bool: this->b = rhs.b; break;
-        case ValueType::Ptr: this->ptr = rhs.ptr; break;
+        case ValueType::Ptr: 
+            this->ptr = rhs.ptr;
+            this->u64 = rhs.u64;
+            break;
         case ValueType::Null: this->null = nullptr; break;
         case ValueType::NO_ENUM_VALUE: break; // add this line to avoid warning.
     }

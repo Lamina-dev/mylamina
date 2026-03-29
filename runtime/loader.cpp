@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <iostream>
 
+#include "error.hpp"
 #include "lmx_export.hpp"
 #include "opcode.hpp"
 
@@ -33,12 +34,11 @@ bool BinaryLoader::check_head() {
 
 void BinaryLoader::load() {
     if (!check_head()) {
-        std::cerr << "Loader: binary file format bad" << std::endl;
+        LM_ERROR("Loader: binary file format bad");
         exit(-1);
     }
     while (true) {
         Op op;
-        //std::cout << (int)op.op << std::endl;
         op.op = static_cast<Opcode>(file.get());
         file.read(reinterpret_cast<char*>(op.operands), opcode_len(op.op));
         ops.push_back(op);

@@ -42,14 +42,13 @@ void DynFunc::call(VirtualCore* vm) const {
     
     switch (ret_type) {
     case Void:      vm->get_register(0) = (void*)nullptr; dcCallVoid(caller, func); break;
-    case Char:      vm->get_register(0) = (uint8_t)dcCallChar(caller, func); break;
-    case Short:     vm->get_register(0) = (uint64_t)dcCallShort(caller, func); break;
-    case Int:       vm->get_register(0) = (uint64_t)dcCallInt(caller, func); break;
-    case LongLong:  vm->get_register(0) = (uint64_t)dcCallLongLong(caller, func); break;
-    case Float:     vm->get_register(0) = dcCallFloat(caller, func); break;
+    case Char:      vm->get_register(0) = static_cast<uint8_t>(dcCallChar(caller, func)); break;
+    case Short:     vm->get_register(0) = static_cast<uint64_t>(dcCallShort(caller, func)); break;
+    case Int:       vm->get_register(0) = static_cast<uint64_t>(dcCallInt(caller, func)); break;
+    case LongLong:  vm->get_register(0) = static_cast<uint64_t>(dcCallLongLong(caller, func)); break;
+    case Bool:      vm->get_register(0) = static_cast<bool>(dcCallBool(caller, func)); break;
     case Double:    vm->get_register(0) = dcCallDouble(caller, func); break;
     case Ptr:       vm->get_register(0) = dcCallPointer(caller, func); break;
-    case Bool:      vm->get_register(0) = (bool)dcCallBool(caller, func); break;
     default:
       dcArgPointer(caller, vm->get_register(reg).ptr);
       break;
@@ -65,7 +64,7 @@ size_t DynFunc::max_size() const {
 #else
         0;
 #endif
-    for (const auto& at : arg_type)
+    for ([[maybe_unused]] const auto& at : arg_type)
         size += 8;
     return size;
 }
@@ -80,7 +79,7 @@ DynLib::DynLib(const std::string& name) {
     handle = dlopen(this->name.c_str(), RTLD_LAZY | RTLD_GLOBAL);
 #endif
     if (!handle) {
-        std::cerr << "error: cannot load lib: '" << this->name << '\'' << std::endl;
+        LM_ERROR("error: cannot load lib: '" + this->name + '\'');
         exit(1);
     }
 }
@@ -95,7 +94,7 @@ void DynLib::set_func(const char* n, std::vector<CBasicTypes> args_type, CBasicT
     dlsym(handle, n);
 #endif
     if (!fp) {
-        std::cerr << "the dynamic symbol '" << n << "' does not exist" << std::endl;
+        LM_ERROR("the dynamic symbol '" + std::string(n) + "' does not exist");
         exit(1);
     }
     if (!funcs.contains(n)) {
@@ -113,7 +112,7 @@ bool DynLib::contain(const char* n) const {
 const DynFunc* DynLib::find(const char* n) const {
     const auto it = funcs.find(n);
     if (it == funcs.end()) {
-        std::cerr << "the func `" << n << "` is not found in lib `" << name << "`" << std::endl;
+        LM_ERROR("the func `" + std::string(n) + "` is not found in lib `" + name + "`");
         return nullptr;
     }
     return &it->second;

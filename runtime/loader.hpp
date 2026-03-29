@@ -10,7 +10,7 @@ struct Op;
 class LMVM_API BinaryLoader {
     std::vector<Op> ops;
     std::vector<char> data;
-    std::remove_reference<std::fstream &>::type file;
+    std::remove_reference_t<std::fstream &> file;
     struct Header {
         uint32_t magic, version;
     };

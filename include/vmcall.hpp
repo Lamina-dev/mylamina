@@ -12,6 +12,8 @@ class VMCall {
     VMC_REGISTER(dyn_load);
     VMC_REGISTER(dyn_set);
     VMC_REGISTER(dyn_call);
+    VMC_REGISTER(alloc_memory);
+    VMC_REGISTER(store_memory);
 
 #undef VMC_REGISTER
 #define VMC_REGISTER(name) void lmx::runtime::VMCall::lm_##name(lmx::runtime::VirtualCore* self)
@@ -19,7 +21,7 @@ public:
     using VmCallType = void (*)(VirtualCore* self);
 
     static inline VmCallType vmcall_table[] = {
-        lm_out, lm_in, lm_exit, lm_dyn_load, lm_dyn_set, lm_dyn_call
+        lm_out, lm_in, lm_exit, lm_dyn_load, lm_dyn_set, lm_dyn_call, lm_alloc_memory, lm_store_memory
     };
     static inline uint16_t vmcall_count = sizeof(vmcall_table) / sizeof(VmCallType);
 };

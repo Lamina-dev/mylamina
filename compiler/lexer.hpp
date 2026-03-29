@@ -5,6 +5,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <regex>
 
 #include "../include/lmx_export.hpp"
 
@@ -44,7 +45,6 @@ struct LMC_API Token {
 class LMC_API Lexer {
     size_t pos{0}, line{1}, col{1};
 
-    void advance();
     std::string& src;
 
     Token next();

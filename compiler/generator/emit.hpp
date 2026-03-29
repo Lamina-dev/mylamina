@@ -75,6 +75,10 @@ public:
     static void emit_or(std::vector<lmx::runtime::Op> &ops, uint8_t r1, uint8_t r2, uint8_t r3);
 
     static void emit_vmc(std::vector<lmx::runtime::Op> &ops, uint16_t idx);
+
+    static void emit_push(std::vector<lmx::runtime::Op>& ops, uint8_t reg);
+
+    static void emit_create_vector(std::vector<lmx::runtime::Op>& ops, uint8_t rd, uint8_t count);
 };
 
 } // namespace lmx

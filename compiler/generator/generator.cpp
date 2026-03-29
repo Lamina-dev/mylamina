@@ -11,10 +11,12 @@
 #include <unordered_map>
 #include <vector>
 
+#include "debug.hpp"
 #include "emit.hpp"
 #include "opcode.hpp"
 #include "vmcall.hpp"
 #include "../common.hpp"
+#include "../../runtime/builtins.hpp"
 
 namespace lmx {
 bool Generator::node_has_error = false;
@@ -24,7 +26,7 @@ Allocator::Allocator() {
 }
 
 size_t Allocator::alloc() {
-    for (size_t i = 0; i < REG_COUNT; i++) {
+    for (size_t i = 1; i < REG_COUNT; i++) {
         if (!bitset.test(i)) {
             bitset.set(i);
             return i;
@@ -44,14 +46,31 @@ void Allocator::free(size_t i) {
     }
 }
 
-bool Allocator::is_free(size_t i) {
+bool Allocator::is_free(const size_t i) const {
     return bitset.test(i);
+}
+
+void Generator::add_builtins() const {
+    size_t base_index = runtime::builtins::builtin_start;
+    for (size_t i = 0; i < runtime::builtins::builtin_constants_count; i++) {
+        const auto&[name, value] = runtime::builtins::builtin_constants[i];
+        cur.back()->new_var(name, false, base_index);
+        base_index++;
+    }
 }
 
 Generator::Generator() {
     cur.push_back(std::make_unique<CompilingFrame>("global"));
+    
+    add_builtins();
+    
+    DEBUG_LOG("Added builtin constants to compiling frame");
+    DEBUG_LOG("Builtin constants in compiling frame:");
+    for (const auto& [name, info] : cur.back()->locals) {
+        DEBUG_LOG_FMT("  %s: index=%d, mutable=%s", name.c_str(), info.second, info.first ? "true" : "false");
+    }
 }
-void Generator::write(runtime::Op& op) {
+void Generator::write(const runtime::Op& op) {
     ops.push_back(op);
 }
 
@@ -64,7 +83,9 @@ std::vector<runtime::Op> &Generator::get_ops() {
 }
 
 size_t Generator::gen(std::shared_ptr<ASTNode> &n) {
+    DEBUG_LOG("Gen: " << cur.back()->to_string());
     switch (n->kind) {
+        DEBUG_LOG(ITIS(n->kind, std::to_string));
         case Program: return gen_program(n);
         case Binary: return gen_binary(n);
         case Unary: return gen_unary(n);
@@ -75,6 +96,7 @@ size_t Generator::gen(std::shared_ptr<ASTNode> &n) {
         case NumLiteral: return gen_num(n);
         case StringLiteral: return gen_string(n);
         case BoolLiteral: return gen_bool(n);
+        case VectorLiteral: return gen_vector(n);
         case BlockStmt: return gen_block(n);
         case IfStmt: return gen_if(n);
         case FuncDecl: return gen_function(n);
@@ -100,7 +122,7 @@ size_t Generator::gen_program(std::shared_ptr<ASTNode> &n) {
     return last_ret;
 }
 size_t Generator::gen_loop(const std::shared_ptr<ASTNode> &shared) {
-    const auto node = std::static_pointer_cast<LoopNode>(std::move(shared));
+    const auto node = std::static_pointer_cast<LoopNode>(shared);
 
     size_t loop_cond = -1;
     if (node->condition) loop_cond = gen(node->condition);
@@ -147,7 +169,7 @@ size_t Generator::gen_break(std::shared_ptr<ASTNode> &n) {
 size_t Generator::gen_module(std::shared_ptr<ASTNode> &shared) {
     const auto node = std::static_pointer_cast<ModuleNode>(std::move(shared));
     for (const auto& mn : modules)
-        if (mn == node->name) return -1;    //已解析过同名模块，不再解析
+        if (mn == node->name) return -1;
 
 
     if (node->type == ModuleNode::Types::dyn) {
@@ -232,9 +254,15 @@ size_t Generator::gen_binary(std::shared_ptr<ASTNode>& n) {
         expr_release = true;
         return expr_ret_reg;
     }
+    DEBUG_LOG("Try to gen node->right");
     volatile size_t rr = gen(node->right);
+    if (rr == -1) {
+        regs.free(lr);
+        return -1;
+    }
     tmp = regs.alloc();
     LMXOpcodeEmitter::emit_mov_rr(ops, tmp, rr);
+    DEBUG_LOG(ITIS(tmp, std::to_string) << ", " << ITIS(rr, std::to_string));
     if (expr_release) regs.free(rr);
     rr = tmp;
     expr_ret_reg = regs.alloc();
@@ -336,7 +364,7 @@ size_t Generator::gen_function(std::shared_ptr<ASTNode> &n) {
             error("the function args name `" + arg + "` was defined on last scope");
         }
     }
-    new_func(node->name, args_count); //函数不做作用域区分，全部全局
+    new_func(node->name, args_count);
     for (size_t i = 0; i < args_count ; i++) {
         LMXOpcodeEmitter::emit_local_set(ops, cur.size() - 1, i,  REG_COUNT_INDEX_MAX - i);
         cur.back()->new_var(node->args[i], true, i);
@@ -454,6 +482,53 @@ size_t Generator::gen_bool(std::shared_ptr<ASTNode> &n) {
     return expr_ret_reg;
 }
 
+size_t Generator::gen_vector(std::shared_ptr<ASTNode> &n) {
+    const auto node = std::static_pointer_cast<VectorNode>(std::move(n));
+    DEBUG_LOG("gen vector");
+    regs.print_regs();
+
+    const size_t vector_size = node->elements.size();
+    DEBUG_LOG("vector_size: " << vector_size);
+
+    std::vector<size_t> elem_regs;
+    elem_regs.reserve(node->elements.size());
+    
+    for (auto& elem : node->elements) {
+        std::shared_ptr<ASTNode> elem_node = elem;
+        DEBUG_LOG("Now processing: " << elem_node->kind << ": " << elem_node);
+        auto reg = gen(elem_node);
+        if (reg == -1) {
+            node_has_error = true;
+            return -1;
+        }
+        elem_regs.push_back(reg);
+        DEBUG_LOG("Pushed elem_regs:");
+        for (auto const& elem_in : elem_regs) DEBUG_LOG(elem_in);
+        regs.print_regs();
+    }
+    
+    for (auto reg : elem_regs) {
+        LMXOpcodeEmitter::emit_push(ops, reg);
+        DEBUG_LOG("Pushed r" << reg << " to stack");
+    }
+    
+    auto result_reg = regs.alloc();
+    LMXOpcodeEmitter::emit_create_vector(ops, result_reg, vector_size);
+    DEBUG_LOG("CREATE_VECTOR r" << result_reg << ", " << vector_size);
+    
+    for (const auto reg : elem_regs) {
+        regs.free(reg);
+        DEBUG_LOG("Freed register: " << reg);
+        regs.print_regs();
+    }
+    
+    expr_release = true;
+    
+    DEBUG_LOG("gen_vector finished, returning result_reg: " << result_reg);
+    regs.print_regs();
+    return result_reg;
+}
+
 size_t Generator::gen_block(std::shared_ptr<ASTNode> &n) {
 
     std::unordered_map save(cur.back()->locals);
@@ -518,7 +593,7 @@ void Generator::write_binary_file(const std::string& path) {
 void Generator::print_ops(std::vector<runtime::Op>& ops) {
     size_t i = 0;
     for (auto &op: ops) {
-        printf("[0x%zx]\t", i++); // fix [0x%llx] the warning caused by
+        printf("[0x%zx]\t", i++);
         switch (op.op) {
             using enum runtime::Opcode;
         case MOV_RI: {
@@ -538,13 +613,20 @@ void Generator::print_ops(std::vector<runtime::Op>& ops) {
             break;
         }
         case MOV_MI: {
-
+            printf("MOVMI: 0x%llu, %lld\n", *reinterpret_cast<uint64_t *>(op.operands), *reinterpret_cast<int64_t *>(op.operands + 1));
+            break;
         }
         case MOV_MM: {
+            printf("MOVMM: 0x%llu, 0x%llu\n", *reinterpret_cast<uint64_t *>(op.operands), *reinterpret_cast<uint64_t *>(op.operands + 1));
+            break;
         }
         case MOV_MR: {
+            printf("MOVMR: 0x%llu, %u\n", *reinterpret_cast<uint64_t *>(op.operands), op.operands[1]);
+            break;
         }
         case MOV_MC: {
+            printf("MOVMC: 0x%llu, 0x%llu\n", *reinterpret_cast<uint64_t *>(op.operands), *reinterpret_cast<uint64_t *>(op.operands + 1));
+            break;
         }
         case ADD: {
             printf("ADD: %u, %u, %u\n", op.operands[0], op.operands[1], op.operands[2]);
@@ -623,11 +705,11 @@ void Generator::print_ops(std::vector<runtime::Op>& ops) {
             break;
         }
         case LOCAL_GET: {
-            printf("LOCAL_GET: %u, [%u, 0x%x]\n", op.operands[0], op.operands[1], *(uint16_t*)(op.operands + 2));
+            printf("LOCAL_GET: %u, [%u, 0x%x]\n", op.operands[0], op.operands[1], *reinterpret_cast<uint16_t *>(op.operands + 2));
             break;
         }
         case LOCAL_SET: {
-            printf("LOCAL_SET: [%u, 0x%x], %u\n", op.operands[0], *(uint16_t*)(op.operands + 1), op.operands[3]);
+            printf("LOCAL_SET: [%u, 0x%x], %u\n", op.operands[0], *reinterpret_cast<uint16_t *>(op.operands + 1), op.operands[3]);
             break;
         }
         case FUNC_CREATE: {
@@ -647,12 +729,13 @@ void Generator::print_ops(std::vector<runtime::Op>& ops) {
             break;
         }
         case VMC: {
-            printf("VMC: %d\n", *(uint16_t*)op.operands);
+            printf("VMC: %d\n", *reinterpret_cast<uint16_t *>(op.operands));
             break;
         }
         case DEC: {
             printf("DEC: %u\n", op.operands[0]);
         }
+        default: ;
         }
     }
     std::cout << std::flush;

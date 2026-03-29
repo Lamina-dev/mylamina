@@ -4,6 +4,7 @@
 
 #pragma once
 #include <bitset>
+#include <format>
 #include <functional>
 #include <iostream>
 #include <unordered_map>
@@ -13,6 +14,7 @@
 #include <ranges>
 #include <sstream>
 
+#include "debug.hpp"
 #include "../ast.hpp"
 
 #include "lmx_export.hpp"
@@ -33,7 +35,16 @@ public:
     size_t alloc();
     size_t alloc(size_t i);
     void free(size_t i);
-    bool is_free(size_t i);
+    [[nodiscard]] bool is_free(size_t i) const;
+    void print_regs() const {
+        std::string regs_str = "Allocated registers: ";
+        for (size_t i = 0; i < REG_COUNT; i++) {
+            if (bitset.test(i)) {
+                regs_str += "r" + std::to_string(i) + " ";
+            }
+        }
+        DEBUG_LOG(regs_str);
+    }
 };
 class LMC_API Generator {
 
@@ -69,6 +80,8 @@ class LMC_API Generator {
     size_t gen_string(std::shared_ptr<ASTNode>& n);
 
     size_t gen_bool(std::shared_ptr<ASTNode>& n);
+
+    size_t gen_vector(std::shared_ptr<ASTNode>& n);
 
     size_t gen_block(std::shared_ptr<ASTNode>& n);
 
@@ -112,8 +125,19 @@ class LMC_API Generator {
             } else error("redefined var: `" + n + "`");
             return local_count;
         }
+
         uint16_t new_var(const std::string& n, bool is_mut) {
             return new_var(n, is_mut, ++local_count);
+        }
+
+        std::string to_string() const {
+            auto result = std::format("CallingFrame {}(\n local_count: {}\n", name, local_count);
+            for (auto [var_name, pack] : locals) {
+                auto& [mut, here] = pack;
+                result.append(std::format("\t{}: {}, at {}\n", var_name, (mut ? "mutable" : "immutable"), here));
+            }
+            result.append(")");
+            return result;
         }
     };
     std::vector<std::unique_ptr<CompilingFrame>> cur;
@@ -156,10 +180,12 @@ class LMC_API Generator {
      */
     std::unordered_map<
         std::string,
-        std::pair<size_t,
-            std::vector<    std::shared_ptr<TypeNode>   >
-        >> extern_funcs;
-    static inline runtime::CBasicTypes lmtype2ctype(std::string& lmt) {
+        std::pair<
+            size_t,
+            std::vector<std::shared_ptr<TypeNode>>
+        >
+    > extern_funcs;
+    static runtime::CBasicTypes lmtype2ctype(std::string& lmt) {
         if (lmt.empty()) return runtime::Void;
         if (lmt == "bool") return runtime::CBasicTypes::Bool;
         if (lmt == "num") return runtime::CBasicTypes::LongLong;
@@ -176,11 +202,14 @@ class LMC_API Generator {
 public:
     static bool node_has_error;
     Allocator regs;
+
+    void add_builtins() const;
+
     Generator();
     ~Generator() = default;
 
     std::vector<runtime::Op> ops;
-    void write(runtime::Op& op);
+    void write(const runtime::Op& op);
 
     std::vector<runtime::Op> &get_ops();
     std::vector<char> constant_pool;
