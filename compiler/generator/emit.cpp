@@ -7,6 +7,8 @@
 #include <chrono>
 #include <cstring>
 
+#include "debug.hpp"
+
 namespace lmx {
 LMXOpcodeEmitter::Ret_Type LMXOpcodeEmitter::ret_type = None;
 template<class T>

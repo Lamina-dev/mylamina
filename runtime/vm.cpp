@@ -27,11 +27,12 @@ Value* VirtualCore::get_value_from_pool(const size_t offset) const {
     return static_cast<Value*>(const_pool_top) + offset;
 }
 
-bool VirtualCore::is_valid_register(uint8_t reg) const {
+bool VirtualCore::is_valid_register(const uint8_t reg) {
+    DEBUG_LOG(ITIS(reg, std::to_string) << ", " << ITIS(REG_COUNT, std::to_string));
     return reg < REG_COUNT;
 }
 
-bool VirtualCore::validate_registers(const uint8_t* regs, size_t count) const {
+bool VirtualCore::validate_registers(const uint8_t* regs, size_t count) {
     for (size_t i = 0; i < count; i++) {
         if (!is_valid_register(regs[i])) {
             return false;
@@ -40,26 +41,26 @@ bool VirtualCore::validate_registers(const uint8_t* regs, size_t count) const {
     return true;
 }
 
-bool VirtualCore::validate_jump_address(uint64_t address) const {
+bool VirtualCore::validate_jump_address(const uint64_t address) const {
     return address < ste.program->size();
 }
 
-bool VirtualCore::validate_stack_frame(size_t frame_index, size_t local_index) const {
+bool VirtualCore::validate_stack_frame(const size_t frame_index, const size_t local_index) const {
     if (frame_index >= ste.stack_frames.size()) {
         return false;
     }
     return local_index < ste.stack_frames[frame_index]->locals.size();
 }
 
-const char* VirtualCore::get_constant_string(uint64_t offset) const {
+const char* VirtualCore::get_constant_string(const uint64_t offset) const {
     if (const_pool_top == nullptr) {
         return nullptr;
     }
     return static_cast<char*>(const_pool_top) + offset;
 }
 
-void VirtualCore::handle_error(const char* error_message) const {
-    fprintf(stderr, "[Error]: %s\n", error_message);
+void VirtualCore::handle_error(const char* error_message) {
+    LM_ERROR(error_message);
 }
 
 VirtualCore::~VirtualCore() {
@@ -70,26 +71,8 @@ VirtualCore::~VirtualCore() {
     libs.clear();
 }
 
-int VirtualCore::run() {
-    DEBUG_ENTER_FUNC();
-    DEBUG_SEPARATOR("VM EXECUTION START");
-    
-    if (ste.program == nullptr) {
-        handle_error("Program is null");
-        DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-        return 1;
-    }
-    
-    DEBUG_LOG_FMT("Program size: %zu instructions", ste.program->size());
-    DEBUG_LOG("Starting VM execution");
-    
-    while (ste.pc < ste.program->size()) {
-        const Opcode& op = ste.program->operator[](ste.pc).op;
-        const auto& operands = ste.program->operator[](ste.pc).operands;
-        
-        DEBUG_EXEC_STEP(ste.pc, op, "");
-
-        switch (op) {
+void VirtualCore::log_op(const Opcode &op, const uint8_t(&operands)[12]) {
+    switch (op) {
             using enum Opcode;
         case MOV_RI: {
             DEBUG_LOG_FMT("MOVRI: r%d, %lld", static_cast<int>(operands[0]), *reinterpret_cast<const int64_t*>(operands + 1));
@@ -243,15 +226,18 @@ int VirtualCore::run() {
             DEBUG_LOG_FMT("Unknown opcode: %d", static_cast<int>(op));
             break;
         }
-        }
+    }
+}
 
-        switch (op) {
+bool VirtualCore::run_op(const Opcode &op, const uint8_t(&operands)[12], int &result) {
+    switch (op) {
             using enum Opcode;
         case MOV_RI: {
             if (!is_valid_register(operands[0])) {
                 handle_error("Invalid register index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t dst_reg = operands[0];
             const int64_t imm_val = *reinterpret_cast<const int64_t*>(operands + 1);
@@ -264,14 +250,16 @@ int VirtualCore::run() {
             if (!is_valid_register(operands[0])) {
                 handle_error("Invalid register index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t dst_reg = operands[0];
             const uint64_t mem_addr = operands[1];
             if (mem_addr == 0) {
                 handle_error("Null memory address in MOV_RM");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             ste.regs[dst_reg] = *reinterpret_cast<const int64_t*>(mem_addr);
             ste.pc++;
@@ -282,7 +270,8 @@ int VirtualCore::run() {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1])) {
                 handle_error("Invalid register index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t dst_reg = operands[0];
             const uint8_t src_reg = operands[1];
@@ -295,12 +284,14 @@ int VirtualCore::run() {
             if (!is_valid_register(operands[0])) {
                 handle_error("Invalid register index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             if (const_pool_top == nullptr) {
                 handle_error("Constant pool is null");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t dst_reg = operands[0];
             const uint64_t const_idx = *(uint64_t*)(operands + 1);
@@ -328,7 +319,8 @@ int VirtualCore::run() {
         case MOV_MR: {
             if (!is_valid_register(operands[1])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint64_t mem_addr = operands[0];
             const uint8_t src_reg = operands[1];
@@ -340,7 +332,8 @@ int VirtualCore::run() {
         case MOV_MC: {
             if (const_pool_top == nullptr) {
                 handle_error("Constant pool is null");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint64_t mem_addr = operands[0];
             const uint64_t const_idx = operands[1];
@@ -352,7 +345,8 @@ int VirtualCore::run() {
         case ADD: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t add_dst_reg = operands[0];
             const uint8_t add_src1_reg = operands[1];
@@ -365,12 +359,14 @@ int VirtualCore::run() {
             if ((type1 == ValueType::Ptr && type2 == ValueType::Int) ||
                 (type1 == ValueType::Int && type2 == ValueType::Ptr)) {
                 handle_error("Cannot add vector and number");
-                return 1;
+                result = 1;
+                return true;
             }
 
             if (type1 != type2) {
                 handle_error("Cannot add different types");
-                return 1;
+                result = 1;
+                return true;
             }
 
             if (type1 == ValueType::Int) {
@@ -378,7 +374,7 @@ int VirtualCore::run() {
                 ste.regs[add_dst_reg] = add_result;
                 ste.pc++;
                 DEBUG_LOG_FMT("ADD: r%d = r%d + r%d = %lld", static_cast<int>(add_dst_reg),
-                    static_cast<int>(add_src1_reg), static_cast<int>(add_src2_reg), add_result);
+                              static_cast<int>(add_src1_reg), static_cast<int>(add_src2_reg), add_result);
             } else if (type1 == ValueType::Ptr) {
                 DEBUG_LOG("Adding ptr...");
                 const size_t vec1_addr = ste.regs[add_src1_reg].u64;
@@ -389,7 +385,8 @@ int VirtualCore::run() {
 
                 if (vec1_len != vec2_len) {
                     handle_error("Vectors must have the same length for addition");
-                    return 1;
+                    result = 1;
+                    return true;
                 }
 
                 const size_t vec_result_addr = ste.heap.size();
@@ -404,7 +401,8 @@ int VirtualCore::run() {
 
                     if (elem1.type != elem2.type) {
                         handle_error("Vector elements must have the same type for addition");
-                        return 1;
+                        result = 1;
+                        return true;
                     }
 
                     Value result_elem;
@@ -412,7 +410,8 @@ int VirtualCore::run() {
                         result_elem = elem1.i64 + elem2.i64;
                     } else {
                         handle_error("Unsupported vector element type for addition");
-                        return 1;
+                        result = 1;
+                        return true;
                     }
 
                     ste.heap[vec_result_addr + 1 + i] = result_elem;
@@ -422,17 +421,19 @@ int VirtualCore::run() {
                 ste.regs[add_dst_reg].u64 = vec_result_addr;
                 ste.pc++;
                 DEBUG_LOG_FMT("ADD: vector r%d + r%d, result len=%llu",
-                    static_cast<int>(add_src1_reg), static_cast<int>(add_src2_reg), vec1_len);
+                              static_cast<int>(add_src1_reg), static_cast<int>(add_src2_reg), vec1_len);
             } else {
                 handle_error("Unsupported type for addition");
-                return 1;
+                result = 1;
+                return true;
             }
             break;
         }
         case SUB: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t sub_dst_reg = operands[0];
             const uint8_t sub_src1_reg = operands[1];
@@ -441,13 +442,14 @@ int VirtualCore::run() {
             ste.regs[sub_dst_reg] = sub_result;
             ste.pc++;
             DEBUG_LOG_FMT("SUB: r%d = r%d - r%d = %lld", static_cast<int>(sub_dst_reg),
-                static_cast<int>(sub_src1_reg), static_cast<int>(sub_src2_reg), sub_result);
+                          static_cast<int>(sub_src1_reg), static_cast<int>(sub_src2_reg), sub_result);
             break;
         }
         case MUL: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t mul_dst_reg = operands[0];
             const uint8_t mul_src1_reg = operands[1];
@@ -456,51 +458,56 @@ int VirtualCore::run() {
             ste.regs[mul_dst_reg] = mul_result;
             ste.pc++;
             DEBUG_LOG_FMT("MUL: r%d = r%d * r%d = %lld", static_cast<int>(mul_dst_reg),
-                static_cast<int>(mul_src1_reg), static_cast<int>(mul_src2_reg), mul_result);
+                          static_cast<int>(mul_src1_reg), static_cast<int>(mul_src2_reg), mul_result);
             break;
         }
         case DIV: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t div_dst_reg = operands[0];
             const uint8_t div_src1_reg = operands[1];
             const uint8_t div_src2_reg = operands[2];
             if (ste.regs[div_src2_reg].i64 == 0) {
                 handle_error("Division by zero");
-                return 1;
+                result = 1;
+                return true;
             }
             const int64_t div_result = ste.regs[div_src1_reg].i64 / ste.regs[div_src2_reg].i64;
             ste.regs[div_dst_reg] = div_result;
             ste.pc++;
             DEBUG_LOG_FMT("DIV: r%d = r%d / r%d = %lld", static_cast<int>(div_dst_reg),
-                static_cast<int>(div_src1_reg), static_cast<int>(div_src2_reg), div_result);
+                          static_cast<int>(div_src1_reg), static_cast<int>(div_src2_reg), div_result);
             break;
         }
         case MOD: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t mod_dst_reg = operands[0];
             const uint8_t mod_src1_reg = operands[1];
             const uint8_t mod_src2_reg = operands[2];
             if (ste.regs[mod_src2_reg].i64 == 0) {
                 handle_error("Modulo by zero");
-                return 1;
+                result = 1;
+                return true;
             }
             const int64_t mod_result = ste.regs[mod_src1_reg].i64 % ste.regs[mod_src2_reg].i64;
             ste.regs[mod_dst_reg] = mod_result;
             ste.pc++;
             DEBUG_LOG_FMT("MOD: r%d = r%d %% r%d = %lld", static_cast<int>(mod_dst_reg),
-                static_cast<int>(mod_src1_reg), static_cast<int>(mod_src2_reg), mod_result);
+                          static_cast<int>(mod_src1_reg), static_cast<int>(mod_src2_reg), mod_result);
             break;
         }
         case POW: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t pow_dst_reg = operands[0];
             const uint8_t pow_src1_reg = operands[1];
@@ -509,14 +516,15 @@ int VirtualCore::run() {
             ste.regs[pow_dst_reg] = pow_result;
             ste.pc++;
             DEBUG_LOG_FMT("POW: r%d = pow(r%d, r%d) = %f", static_cast<int>(pow_dst_reg),
-                static_cast<int>(pow_src1_reg), static_cast<int>(pow_src2_reg), pow_result);
+                          static_cast<int>(pow_src1_reg), static_cast<int>(pow_src2_reg), pow_result);
             break;
         }
         case FCALL: {
             uint64_t target_pc = *reinterpret_cast<const uint64_t*>(operands);
             if (target_pc >= ste.program->size()) {
                 handle_error("Invalid jump address");
-                return 1;
+                result = 1;
+                return true;
             }
             const auto args_count = operands[8];
             ste.ret_addr_stack.push_back(ste.pc + 1);
@@ -526,7 +534,8 @@ int VirtualCore::run() {
             for (uint8_t i = 0; i != args_count; i++) {
                 if (REG_COUNT_INDEX_MAX - i >= REG_COUNT) {
                     handle_error("Invalid register index");
-                    return 1;
+                    result = 1;
+                    return true;
                 }
                 ste.stack_frames.back()->locals[i] = ste.regs[REG_COUNT_INDEX_MAX - i];
             }
@@ -536,7 +545,8 @@ int VirtualCore::run() {
         case FRET: {
             if (ste.ret_addr_stack.empty() || ste.stack_frames.size() <= 1) {
                 handle_error("Invalid return operation");
-                return 1;
+                result = 1;
+                return true;
             }
             const size_t return_addr = ste.ret_addr_stack.back();
             ste.pc = return_addr;
@@ -549,13 +559,15 @@ int VirtualCore::run() {
             DEBUG_LOG("HALT");
             DEBUG_SEPARATOR("VM EXECUTION END (SUCCESS)");
             DEBUG_LEAVE_FUNC();
-            return 0;
+            result = 0;
+            return true;
         }
         case DEBUG_LOG: {
             if (const_pool_top == nullptr) {
                 handle_error("Constant pool is null");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             DEBUG_LOG_FMT("[LogInfo]: %s", static_cast<char *>(const_pool_top) + *reinterpret_cast<const uint64_t*>(operands));
             ste.pc++;
@@ -566,7 +578,8 @@ int VirtualCore::run() {
             if (target_pc >= ste.program->size()) {
                 handle_error("Invalid jump address");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             ste.pc = target_pc;
             DEBUG_LOG_FMT("JMP: %llu", target_pc);
@@ -576,7 +589,8 @@ int VirtualCore::run() {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t dst_reg = operands[0];
             const uint8_t src1_reg = operands[1];
@@ -585,13 +599,14 @@ int VirtualCore::run() {
             ste.regs[dst_reg].b = result;
             ste.pc++;
             DEBUG_LOG_FMT("CMP_GE: r%d = (r%d >= r%d) = %s", static_cast<int>(dst_reg),
-                static_cast<int>(src1_reg), static_cast<int>(src2_reg), result ? "true" : "false");
+                          static_cast<int>(src1_reg), static_cast<int>(src2_reg), result ? "true" : "false");
             break;
         }
         case CMP_LT: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t cmp_dst_reg = operands[0];
             const uint8_t cmp_src1_reg = operands[1];
@@ -600,13 +615,14 @@ int VirtualCore::run() {
             ste.regs[cmp_dst_reg].b = cmp_result;
             ste.pc++;
             DEBUG_LOG_FMT("CMP_LT: r%d = (r%d < r%d) = %s", static_cast<int>(cmp_dst_reg),
-                static_cast<int>(cmp_src1_reg), static_cast<int>(cmp_src2_reg), cmp_result ? "true" : "false");
+                          static_cast<int>(cmp_src1_reg), static_cast<int>(cmp_src2_reg), cmp_result ? "true" : "false");
             break;
         }
         case CMP_LE: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t cmp_dst_reg = operands[0];
             const uint8_t cmp_src1_reg = operands[1];
@@ -615,13 +631,14 @@ int VirtualCore::run() {
             ste.regs[cmp_dst_reg].b = cmp_result;
             ste.pc++;
             DEBUG_LOG_FMT("CMP_LE: r%d = (r%d <= r%d) = %s", static_cast<int>(cmp_dst_reg),
-                static_cast<int>(cmp_src1_reg), static_cast<int>(cmp_src2_reg), cmp_result ? "true" : "false");
+                          static_cast<int>(cmp_src1_reg), static_cast<int>(cmp_src2_reg), cmp_result ? "true" : "false");
             break;
         }
         case CMP_GT: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             ste.regs[operands[0]].b = ste.regs[operands[1]].i64 >  ste.regs[operands[2]].i64;
             ste.pc++;
@@ -630,7 +647,8 @@ int VirtualCore::run() {
         case CMP_EQ: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             ste.regs[operands[0]].b = ste.regs[operands[1]].i64 == ste.regs[operands[2]].i64;
             ste.pc++;
@@ -639,7 +657,8 @@ int VirtualCore::run() {
         case CMP_NE: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             ste.regs[operands[0]].b = ste.regs[operands[1]].i64 != ste.regs[operands[2]].i64;
             ste.pc++;
@@ -649,13 +668,15 @@ int VirtualCore::run() {
             if (!is_valid_register(operands[0])) {
                 handle_error("Invalid register index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             uint64_t target_pc = *reinterpret_cast<const uint64_t*>(operands + 1);
             if (target_pc >= ste.program->size()) {
                 handle_error("Invalid jump address");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t cond_reg = operands[0];
             bool condition = ste.regs[cond_reg].b;
@@ -671,12 +692,14 @@ int VirtualCore::run() {
         case IF_FALSE: {
             if (!is_valid_register(operands[0])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             uint64_t target_pc = *reinterpret_cast<const uint64_t*>(operands + 1);
             if (target_pc >= ste.program->size()) {
                 handle_error("Invalid jump address");
-                return 1;
+                result = 1;
+                return true;
             }
             if (!ste.regs[operands[0]].b) ste.pc = target_pc;
             else ste.pc++;
@@ -699,18 +722,21 @@ int VirtualCore::run() {
             if (!is_valid_register(operands[0])) {
                 handle_error("Invalid register index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             if (operands[1] >= ste.stack_frames.size()) {
                 handle_error("Invalid stack frame index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             uint16_t local_index = *(uint16_t*)(operands + 2);
             if (local_index >= ste.stack_frames[operands[1]]->locals.size()) {
                 handle_error("Invalid local variable index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t dst_reg = operands[0];
             const uint8_t frame_idx = operands[1];
@@ -719,39 +745,43 @@ int VirtualCore::run() {
             ste.pc++;
 
             DEBUG_LOG_FMT("LOCAL_GET: r%d = frame[%d].locals[%d] = %s", static_cast<int>(dst_reg),
-                static_cast<int>(frame_idx), local_index,
-                ste.regs[dst_reg].to_string().c_str());
+                          static_cast<int>(frame_idx), local_index,
+                          ste.regs[dst_reg].to_string().c_str());
             break;
         }
         case LOCAL_SET: {
             if (!is_valid_register(operands[3])) {
                 handle_error("Invalid register index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             if (operands[0] >= ste.stack_frames.size()) {
                 handle_error("Invalid stack frame index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             uint16_t local_index = *(uint16_t*)(operands + 1);
             if (local_index >= ste.stack_frames[operands[0]]->locals.size()) {
                 handle_error("Invalid local variable index");
                 DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t frame_idx = operands[0];
             const uint8_t src_reg = operands[3];
             ste.stack_frames[frame_idx]->locals[local_index] = ste.regs[src_reg];
             ste.pc++;
             DEBUG_LOG_FMT("LOCAL_SET: frame[%d].locals[%d] = r%d (%s)", static_cast<int>(frame_idx),
-                local_index, static_cast<int>(src_reg), ste.regs[src_reg].to_string().c_str());
+                          local_index, static_cast<int>(src_reg), ste.regs[src_reg].to_string().c_str());
             break;
         }
         case AND: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             ste.regs[operands[0]].b = ste.regs[operands[1]].b && ste.regs[operands[2]].b;
             ste.pc++;
@@ -760,7 +790,8 @@ int VirtualCore::run() {
         case OR: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             ste.regs[operands[0]].b = ste.regs[operands[1]].b || ste.regs[operands[2]].b;
             ste.pc++;
@@ -770,7 +801,8 @@ int VirtualCore::run() {
             uint16_t vmcall_index = *(uint16_t*)operands;
             if (vmcall_index >= VMCall::vmcall_count) {
                 handle_error("Invalid VMCall index");
-                return 1;
+                result = 1;
+                return true;
             }
             VMCall::vmcall_table[vmcall_index](this);
             ste.pc++;
@@ -779,7 +811,8 @@ int VirtualCore::run() {
         case DEC: {
             if (!is_valid_register(operands[0])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             ste.regs[operands[0]].i64--;
             ste.pc++;
@@ -788,7 +821,8 @@ int VirtualCore::run() {
         case PUSH: {
             if (!is_valid_register(operands[0])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t src_reg = operands[0];
             ste.stack.push_back(ste.regs[src_reg]);
@@ -799,14 +833,16 @@ int VirtualCore::run() {
         case CREATE_VECTOR: {
             if (!is_valid_register(operands[0])) {
                 handle_error("Invalid register index");
-                return 1;
+                result = 1;
+                return true;
             }
             const uint8_t dst_reg = operands[0];
             const uint8_t count = operands[1];
 
             if (ste.stack.size() < count) {
                 handle_error("Not enough elements on stack for CREATE_VECTOR");
-                return 1;
+                result = 1;
+                return true;
             }
 
             size_t vec_addr = ste.heap.size();
@@ -827,13 +863,39 @@ int VirtualCore::run() {
 
             ste.pc++;
             DEBUG_LOG_FMT("CREATE_VECTOR: r%d = vec[%d] at heap[%llu]", static_cast<int>(dst_reg),
-                static_cast<int>(count), vec_addr);
+                          static_cast<int>(count), vec_addr);
             break;
         }
         default:
+            handle_error("unknown opcode");
             ste.pc++;
             break;
-        }
+    }
+    return false;
+}
+
+int VirtualCore::run() {
+    DEBUG_ENTER_FUNC();
+    DEBUG_SEPARATOR("VM EXECUTION START");
+    
+    if (ste.program == nullptr) {
+        handle_error("Program is null");
+        DEBUG_SEPARATOR("VM EXECUTION END (ERROR)");
+        return 1;
+    }
+    
+    DEBUG_LOG_FMT("Program size: %zu instructions", ste.program->size());
+    DEBUG_LOG("Starting VM execution");
+    
+    while (ste.pc < ste.program->size()) {
+        const Opcode& op = (*ste.program)[ste.pc].op;
+        const auto& operands = (*ste.program)[ste.pc].operands;
+        
+        DEBUG_EXEC_STEP(ste.pc, op, "");
+
+        log_op(op, operands);
+        if (int result; run_op(op, operands, result))
+            return result;
     }
 
     DEBUG_LOG("PC out of bounds");

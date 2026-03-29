@@ -4,6 +4,7 @@
 
 #pragma once
 #include <bitset>
+#include <format>
 #include <functional>
 #include <iostream>
 #include <unordered_map>
@@ -34,7 +35,7 @@ public:
     size_t alloc();
     size_t alloc(size_t i);
     void free(size_t i);
-    bool is_free(size_t i) const;
+    [[nodiscard]] bool is_free(size_t i) const;
     void print_regs() const {
         std::string regs_str = "Allocated registers: ";
         for (size_t i = 0; i < REG_COUNT; i++) {
@@ -124,8 +125,19 @@ class LMC_API Generator {
             } else error("redefined var: `" + n + "`");
             return local_count;
         }
+
         uint16_t new_var(const std::string& n, bool is_mut) {
             return new_var(n, is_mut, ++local_count);
+        }
+
+        std::string to_string() const {
+            auto result = std::format("CallingFrame {}(\n local_count: {}\n", name, local_count);
+            for (auto [var_name, pack] : locals) {
+                auto& [mut, here] = pack;
+                result.append(std::format("\t{}: {}, at {}\n", var_name, (mut ? "mutable" : "immutable"), here));
+            }
+            result.append(")");
+            return result;
         }
     };
     std::vector<std::unique_ptr<CompilingFrame>> cur;
@@ -197,7 +209,7 @@ public:
     ~Generator() = default;
 
     std::vector<runtime::Op> ops;
-    void write(runtime::Op& op);
+    void write(const runtime::Op& op);
 
     std::vector<runtime::Op> &get_ops();
     std::vector<char> constant_pool;

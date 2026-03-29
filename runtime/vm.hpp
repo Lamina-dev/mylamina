@@ -44,13 +44,13 @@ class LMVM_API VirtualCore {
     [[nodiscard]] Value* get_value_from_pool(size_t offset) const;
     
     // 检查寄存器索引是否有效
-    [[nodiscard]] bool is_valid_register(uint8_t reg) const;
+    static bool is_valid_register(uint8_t reg) ;
     
     // 统一错误处理函数
-    void handle_error(const char* error_message) const;
+    static void handle_error(const char* error_message) ;
     
     // 验证多个寄存器索引
-    [[nodiscard]] bool validate_registers(const uint8_t* regs, size_t count) const;
+    [[nodiscard]] static bool validate_registers(const uint8_t* regs, size_t count);
     
     // 验证跳转地址
     [[nodiscard]] bool validate_jump_address(uint64_t address) const;
@@ -60,6 +60,11 @@ class LMVM_API VirtualCore {
     
     // 从常量池获取字符串
     [[nodiscard]] const char* get_constant_string(uint64_t offset) const;
+
+    static void log_op(const Opcode &op, const uint8_t(&operands)[12]);
+
+    bool run_op(const Opcode &op, const uint8_t(&operands)[12], int &result);
+
 public:
     std::vector<std::unique_ptr<DynLib>> libs; // 加载的动态库
     

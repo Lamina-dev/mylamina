@@ -28,18 +28,21 @@ int file_run(const std::string& file_name) {
     }
     file.read(reinterpret_cast<char *>(&magic), sizeof(magic));
     if (magic == LMX_MAGIC_NUM) return binary_run(std::move(file));
+
     file.seekg(0, std::ios::beg);
-    auto src = std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    auto src = std::string(std::istreambuf_iterator(file), std::istreambuf_iterator<char>());
     lmx::Lexer lexer(src);
     auto ts = lexer.tokenize(src);
     lmx::Parser parser(ts, src, file_name);
-    lmx::Generator gener;
     std::shared_ptr<lmx::ASTNode> node = parser.parse_program();
     if (!node || parser.error()) return -1;
+
+    lmx::Generator gener;
     gener.gen(node);
-    if (lmx::Generator::node_has_error)return -1;
+    if (lmx::Generator::node_has_error) return -1;
     gener.ops.emplace_back(lmx::runtime::Opcode::HALT);
     gener.write_binary_file(file_name);
+
     lmx::runtime::VirtualCore vm;
     vm.set_program(&gener.ops);
     vm.set_constant(gener.constant_pool.data());

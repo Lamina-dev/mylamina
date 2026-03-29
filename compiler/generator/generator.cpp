@@ -71,7 +71,7 @@ Generator::Generator() {
         DEBUG_LOG_FMT("  %s: index=%d, mutable=%s", name.c_str(), info.second, info.first ? "true" : "false");
     }
 }
-void Generator::write(runtime::Op& op) {
+void Generator::write(const runtime::Op& op) {
     ops.push_back(op);
 }
 
@@ -84,7 +84,9 @@ std::vector<runtime::Op> &Generator::get_ops() {
 }
 
 size_t Generator::gen(std::shared_ptr<ASTNode> &n) {
+    DEBUG_LOG("Gen: " << cur.back()->to_string());
     switch (n->kind) {
+        DEBUG_LOG(ITIS(n->kind, std::to_string));
         case Program: return gen_program(n);
         case Binary: return gen_binary(n);
         case Unary: return gen_unary(n);
@@ -95,7 +97,7 @@ size_t Generator::gen(std::shared_ptr<ASTNode> &n) {
         case NumLiteral: return gen_num(n);
         case StringLiteral: return gen_string(n);
         case BoolLiteral: return gen_bool(n);
-        case VectorLiteral: return this->gen_vector(n);
+        case VectorLiteral: return gen_vector(n);
         case BlockStmt: return gen_block(n);
         case IfStmt: return gen_if(n);
         case FuncDecl: return gen_function(n);
@@ -253,9 +255,15 @@ size_t Generator::gen_binary(std::shared_ptr<ASTNode>& n) {
         expr_release = true;
         return expr_ret_reg;
     }
+    DEBUG_LOG("Try to gen node->right");
     volatile size_t rr = gen(node->right);
+    if (rr == -1) {
+        regs.free(lr);
+        return -1;
+    }
     tmp = regs.alloc();
     LMXOpcodeEmitter::emit_mov_rr(ops, tmp, rr);
+    DEBUG_LOG(ITIS(tmp, std::to_string) << ", " << ITIS(rr, std::to_string));
     if (expr_release) regs.free(rr);
     rr = tmp;
     expr_ret_reg = regs.alloc();
