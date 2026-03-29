@@ -10,12 +10,6 @@
 #include <string>
 #include <iomanip>
 
-// 启用调试输出宏 - 定义这个宏来启用调试输出
-// 注释掉这一行来禁用调试输出
-#define DEBUG_OUTPUT
-
-#ifdef DEBUG_OUTPUT
-
 // 控制台颜色代码
 #define COLOR_RESET   "\033[0m"
 #define COLOR_YELLOW  "\033[33m"
@@ -25,6 +19,12 @@
 #define COLOR_RED     "\033[31m"
 #define COLOR_BLUE    "\033[34m"
 #define COLOR_WHITE   "\033[37m"
+
+// 启用调试输出宏 - 定义这个宏来启用调试输出
+// 注释掉这一行来禁用调试输出
+// #define DEBUG_OUTPUT
+
+#ifdef DEBUG_OUTPUT
 
 // 带颜色的输出宏
 #define DEBUG_COLOR(color, msg) do { \
