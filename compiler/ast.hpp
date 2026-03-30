@@ -21,7 +21,7 @@ namespace lmx {
 
 enum ASTKind {
     Program,
-    Binary, Unary, NumLiteral, StringLiteral, BoolLiteral, VectorLiteral,
+    Binary, Unary, NumLiteral, StringLiteral, BoolLiteral,
     BlockStmt,
     IfStmt,
     VarDecl,
@@ -217,11 +217,7 @@ struct StringNode final : public ExprNode {
     ~StringNode() override = default;
 };
 
-struct VectorNode final : public ExprNode {
-    std::vector<std::shared_ptr<ExprNode>> elements;
-    explicit VectorNode(std::vector<std::shared_ptr<ExprNode>> elems)
-        : ExprNode(ASTKind::VectorLiteral), elements(std::move(elems)){}
-};
+
 
 struct BinaryNode final : public ExprNode {
     std::shared_ptr<ASTNode> left;

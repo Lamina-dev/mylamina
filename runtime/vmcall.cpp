@@ -72,53 +72,5 @@ VMC_REGISTER(dyn_call) {
         );
 }
 
-/*
- * VMC_alloc_memory(6)
- * arg1 : size(0)
- *
- * return: memory_ptr in r0
- */
-VMC_REGISTER(alloc_memory) {
-    size_t slots = self->get_register(0).u64;
 
-    size_t memory_start = self->heap_size();
-
-    for (size_t i = 0; i < slots; i++) {
-        Value value;
-        value.type = ValueType::Null;
-        value.null = nullptr;
-        self->heap_push_back(value);
-    }
-
-    Value memory_ptr;
-    memory_ptr.type = ValueType::Ptr;
-    memory_ptr.u64 = memory_start;
-    self->get_register(0) = memory_ptr;
-
-    DEBUG_LOG("VMC[6]: allocated " << slots << " slots at heap[" << memory_start << "]");
-}
-
-/*
- * VMC_store_memory(7)
- * arg1 : memory_ptr(0)
- * arg2 : offset(1)
- * arg3 : value(2)
- *
- * 存储值到指定内存地址
- */
-VMC_REGISTER(store_memory) {
-    const size_t memory_ptr = self->get_register(0).u64;
-    const size_t offset = self->get_register(1).u64;
-    const Value value = self->get_register(2);
-    
-    if (memory_ptr >= self->heap_size()) {
-        return;
-    }
-    
-    if (memory_ptr + offset >= self->heap_size()) {
-        return;
-    }
-    
-    self->heap_at(memory_ptr + offset) = value;
-}
 

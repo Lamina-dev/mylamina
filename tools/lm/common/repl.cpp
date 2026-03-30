@@ -30,15 +30,6 @@ void print_ast(const std::shared_ptr<lmx::ASTNode>& node, const int indent = 0) 
         case lmx::ASTKind::BoolLiteral:
             std::cerr << "BoolLiteral(" << (dynamic_cast<lmx::BoolNode*>(node.get())->b ? "true" : "false") << ")" << std::endl;
             break;
-        case lmx::ASTKind::VectorLiteral: {
-            const auto elem_vec = (dynamic_cast<lmx::VectorNode*>(node.get())->elements);
-            std::cerr << "VectorLiteral(" << std::endl;
-            for (auto const& k : elem_vec) {
-                print_ast(k, indent + 1);
-            }
-            std::cerr << ")" << std::endl;
-            break;
-        }
         case lmx::ASTKind::VarDecl:
             {
                 auto decl = dynamic_cast<lmx::VarDeclNode*>(node.get());
@@ -216,68 +207,7 @@ int run_repl() {
                 auto& value = core.get_register(op);
                 if (value.type == lmx::runtime::ValueType::Null) {
                 } else if (value.type == lmx::runtime::ValueType::Ptr) {
-                    size_t vector_ptr = value.i64;
-                    size_t vector_size = core.heap_at(vector_ptr).i64;
-                    std::cout << "vec[";
-                    for (size_t i = 0; i < vector_size; i++) {
-                        if (i > 0) std::cout << ", ";
-                        auto& elem = core.heap_at(vector_ptr + 1 + i);
-                        if (elem.type == lmx::runtime::ValueType::Ptr) {
-                            size_t elem_ptr = elem.u64;
-                            size_t elem_size = core.heap_at(elem_ptr).i64;
-                            std::cout << "vec[";
-                            for (size_t j = 0; j < elem_size; j++) {
-                                if (j > 0) std::cout << ", ";
-                                auto& nested_elem = core.heap_at(elem_ptr + 1 + j);
-                                switch (nested_elem.type) {
-                                    case lmx::runtime::ValueType::Int:
-                                        std::cout << nested_elem.i64;
-                                        break;
-                                    case lmx::runtime::ValueType::Str:
-                                        std::cout << "\"" << nested_elem.str << "\"";
-                                        break;
-                                    case lmx::runtime::ValueType::Bool:
-                                        std::cout << (nested_elem.b ? "true" : "false");
-                                        break;
-                                    case lmx::runtime::ValueType::Float:
-                                        std::cout << nested_elem.f64;
-                                        break;
-                                    case lmx::runtime::ValueType::Ptr:
-                                        std::cout << "ptr(" << nested_elem.u64 << ")";
-                                        break;
-                                    case lmx::runtime::ValueType::Null:
-                                        std::cout << "null";
-                                        break;
-                                    default:
-                                        std::cout << "<unknown type>";
-                                        break;
-                                }
-                            }
-                            std::cout << "]";
-                        } else {
-                            switch (elem.type) {
-                                case lmx::runtime::ValueType::Int:
-                                    std::cout << elem.i64;
-                                    break;
-                                case lmx::runtime::ValueType::Str:
-                                    std::cout << "\"" << elem.str << "\"";
-                                    break;
-                                case lmx::runtime::ValueType::Bool:
-                                    std::cout << (elem.b ? "true" : "false");
-                                    break;
-                                case lmx::runtime::ValueType::Float:
-                                    std::cout << elem.f64;
-                                    break;
-                                case lmx::runtime::ValueType::Null:
-                                    std::cout << "null";
-                                    break;
-                                default:
-                                    std::cout << "<unknown type>";
-                                    break;
-                            }
-                        }
-                    }
-                    std::cout << "]" << std::endl;
+                    std::cout << "<ptr>" << std::endl;
                 } else {
                     switch (value.type) {
                         case lmx::runtime::ValueType::Int:

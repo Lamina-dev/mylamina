@@ -203,7 +203,7 @@ public:
     static bool node_has_error;
     Allocator regs;
 
-    void add_builtins() const;
+
 
     Generator();
     ~Generator() = default;

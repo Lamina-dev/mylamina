@@ -4,10 +4,9 @@
 
 #include "vm.hpp"
 #include <cmath>
-#include <iostream>
+
 #include <ostream>
 
-#include "builtins.hpp"
 #include "value/value.hpp"
 #include "vmcall.hpp"
 #include "../compiler/generator/generator.hpp"
@@ -20,7 +19,6 @@ VirtualCore::VirtualCore() : const_pool_top(nullptr) {
     ste.pc = 0;
     ste.stack_frames.push_back(std::make_unique<StackFrame>());
     ste.stack_frames.back()->locals.resize(64);
-    insert_builtins();
 }
 
 Value* VirtualCore::get_value_from_pool(const size_t offset) const {
@@ -300,48 +298,7 @@ bool VirtualCore::run_op(const Opcode &op, const uint8_t(&operands)[12], int &re
             DEBUG_LOG_FMT("MOVRC: r%d = const[%llu]", static_cast<int>(dst_reg), const_idx);
             break;
         }
-        case MOV_MI: {
-            const uint64_t mem_addr = operands[0];
-            const int64_t imm_val = *reinterpret_cast<const int64_t*>(operands + 1);
-            ste.heap[mem_addr] = imm_val;
-            ste.pc++;
-            DEBUG_LOG_FMT("MOVMI: mem[0x%llx] = %lld", mem_addr, imm_val);
-            break;
-        }
-        case MOV_MM: {
-            const uint64_t dst_addr = operands[0];
-            const uint64_t src_addr = operands[1];
-            ste.heap[dst_addr] = ste.heap[src_addr];
-            ste.pc++;
-            DEBUG_LOG_FMT("MOVMM: mem[0x%llx] = mem[0x%llx]", dst_addr, src_addr);
-            break;
-        }
-        case MOV_MR: {
-            if (!is_valid_register(operands[1])) {
-                handle_error("Invalid register index");
-                result = 1;
-                return true;
-            }
-            const uint64_t mem_addr = operands[0];
-            const uint8_t src_reg = operands[1];
-            ste.heap[mem_addr] = ste.regs[src_reg];
-            ste.pc++;
-            DEBUG_LOG_FMT("MOVMR: mem[0x%llx] = r%d", mem_addr, static_cast<int>(src_reg));
-            break;
-        }
-        case MOV_MC: {
-            if (const_pool_top == nullptr) {
-                handle_error("Constant pool is null");
-                result = 1;
-                return true;
-            }
-            const uint64_t mem_addr = operands[0];
-            const uint64_t const_idx = operands[1];
-            ste.heap[mem_addr] = (char*)get_constant() + const_idx;
-            ste.pc++;
-            DEBUG_LOG_FMT("MOVMC: mem[0x%llx] = const[%llu]", mem_addr, const_idx);
-            break;
-        }
+
         case ADD: {
             if (!is_valid_register(operands[0]) || !is_valid_register(operands[1]) || !is_valid_register(operands[2])) {
                 handle_error("Invalid register index");
@@ -372,61 +329,14 @@ bool VirtualCore::run_op(const Opcode &op, const uint8_t(&operands)[12], int &re
             if (type1 == ValueType::Int) {
                 const int64_t add_result = ste.regs[add_src1_reg].i64 + ste.regs[add_src2_reg].i64;
                 ste.regs[add_dst_reg] = add_result;
-                ste.pc++;
                 DEBUG_LOG_FMT("ADD: r%d = r%d + r%d = %lld", static_cast<int>(add_dst_reg),
                               static_cast<int>(add_src1_reg), static_cast<int>(add_src2_reg), add_result);
-            } else if (type1 == ValueType::Ptr) {
-                DEBUG_LOG("Adding ptr...");
-                const size_t vec1_addr = ste.regs[add_src1_reg].u64;
-                const size_t vec2_addr = ste.regs[add_src2_reg].u64;
-
-                const size_t vec1_len = ste.heap[vec1_addr].i64;
-                const size_t vec2_len = ste.heap[vec2_addr].i64;
-
-                if (vec1_len != vec2_len) {
-                    handle_error("Vectors must have the same length for addition");
-                    result = 1;
-                    return true;
-                }
-
-                const size_t vec_result_addr = ste.heap.size();
-                ste.heap.resize(vec_result_addr + 1 + vec1_len);
-
-                ste.heap[vec_result_addr].type = ValueType::Int;
-                ste.heap[vec_result_addr].i64 = vec1_len;
-
-                for (size_t i = 0; i < vec1_len; i++) {
-                    const Value& elem1 = ste.heap[vec1_addr + 1 + i];
-                    const Value& elem2 = ste.heap[vec2_addr + 1 + i];
-
-                    if (elem1.type != elem2.type) {
-                        handle_error("Vector elements must have the same type for addition");
-                        result = 1;
-                        return true;
-                    }
-
-                    Value result_elem;
-                    if (elem1.type == ValueType::Int) {
-                        result_elem = elem1.i64 + elem2.i64;
-                    } else {
-                        handle_error("Unsupported vector element type for addition");
-                        result = 1;
-                        return true;
-                    }
-
-                    ste.heap[vec_result_addr + 1 + i] = result_elem;
-                }
-
-                ste.regs[add_dst_reg].type = ValueType::Ptr;
-                ste.regs[add_dst_reg].u64 = vec_result_addr;
-                ste.pc++;
-                DEBUG_LOG_FMT("ADD: vector r%d + r%d, result len=%llu",
-                              static_cast<int>(add_src1_reg), static_cast<int>(add_src2_reg), vec1_len);
             } else {
                 handle_error("Unsupported type for addition");
                 result = 1;
                 return true;
             }
+            ste.pc++;
             break;
         }
         case SUB: {
@@ -830,42 +740,7 @@ bool VirtualCore::run_op(const Opcode &op, const uint8_t(&operands)[12], int &re
             DEBUG_LOG_FMT("PUSH: r%d, stack size=%llu", static_cast<int>(src_reg), ste.stack.size());
             break;
         }
-        case CREATE_VECTOR: {
-            if (!is_valid_register(operands[0])) {
-                handle_error("Invalid register index");
-                result = 1;
-                return true;
-            }
-            const uint8_t dst_reg = operands[0];
-            const uint8_t count = operands[1];
 
-            if (ste.stack.size() < count) {
-                handle_error("Not enough elements on stack for CREATE_VECTOR");
-                result = 1;
-                return true;
-            }
-
-            size_t vec_addr = ste.heap.size();
-            ste.heap.resize(vec_addr + 1 + count);
-            ste.heap[vec_addr].type = ValueType::Int;
-            ste.heap[vec_addr].i64 = count;
-
-            for (size_t i = 0; i < count; i++) {
-                ste.heap[vec_addr + 1 + i] = ste.stack[ste.stack.size() - count + i];
-            }
-
-            for (size_t i = 0; i < count; i++) {
-                ste.stack.pop_back();
-            }
-
-            ste.regs[dst_reg].type = ValueType::Ptr;
-            ste.regs[dst_reg].u64 = vec_addr;
-
-            ste.pc++;
-            DEBUG_LOG_FMT("CREATE_VECTOR: r%d = vec[%d] at heap[%llu]", static_cast<int>(dst_reg),
-                          static_cast<int>(count), vec_addr);
-            break;
-        }
         default:
             handle_error("unknown opcode");
             ste.pc++;
@@ -904,30 +779,5 @@ int VirtualCore::run() {
     return 1;
 }
 
-void VirtualCore::insert_builtins() {
-    DEBUG_LOG("insert builtins...");
 
-    const auto old_program = ste.program;
-    const auto old_pc = ste.pc;
-
-    size_t base_index = builtins::builtin_start;
-    for (size_t i = 0; i < builtins::builtin_constants_count; i++) {
-        const auto& constant = builtins::builtin_constants[i];
-
-        if (ste.stack_frames[0]->locals.size() <= base_index) {
-            ste.stack_frames[0]->locals.resize(base_index + 1);
-        }
-
-        ste.stack_frames[0]->locals[base_index] = constant.value;
-
-        DEBUG_LOG_FMT("builtin %s = %s at %zu",
-            constant.name,
-            constant.value.to_string().c_str(),
-            base_index);
-        base_index++;
-    }
-
-    ste.program = old_program;
-    ste.pc = old_pc;
-}
 }

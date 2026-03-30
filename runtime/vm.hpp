@@ -21,7 +21,6 @@ namespace lmx::runtime {
 struct LMVM_API LMXState {
     size_t pc{0};                     // 程序计数器
     std::array<Value, REG_COUNT> regs{}; // 寄存器数组
-    std::vector<Value> heap{};
     std::vector<size_t> ret_addr_stack; // 返回地址栈
     std::vector<Op>* program{};        // 程序指令
     std::vector<std::unique_ptr<StackFrame>> stack_frames; // 栈帧
@@ -106,13 +105,6 @@ public:
     // 设置寄存器指针值
     void set_reg_ptr(const size_t idx, void* np) { ste.regs[idx].ptr = np; }
     
-    // 堆内存管理方法
-    [[nodiscard]] size_t heap_size() const { return ste.heap.size(); }
-    Value& heap_at(size_t index) { return ste.heap[index]; }
-    [[nodiscard]] const Value& heap_at(size_t index) const { return ste.heap[index]; }
-    void heap_push_back(const Value& value) { ste.heap.push_back(value); }
-
-    void insert_builtins();
 };
 
 }

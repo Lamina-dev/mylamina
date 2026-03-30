@@ -180,60 +180,7 @@ std::shared_ptr<ASTNode> Parser::parse_if() {
     }
     return std::make_shared<IfStmtNode>(condition, then_block, else_block);
 }
-std::shared_ptr<VectorNode> Parser::parse_vector() {
-    if (!match(TokenType::LBRACK)) {
-        error("expected '[' at start of vector");
-        return nullptr;
-    }
-    advance();
 
-    std::vector<std::shared_ptr<ExprNode>> elements;
-
-    if (match(TokenType::RBRACK)) {
-        advance();
-        return std::make_shared<VectorNode>(std::move(elements));
-    }
-
-    elements.push_back(parse_expr());
-
-    while (!match(TokenType::RBRACK) && !is_eof()) {
-        if (!match(TokenType::COMMA)) {
-            error("expected ',' between vector elements");
-            while (!match(TokenType::COMMA) && !match(TokenType::RBRACK) && !is_eof()) {
-                advance();
-            }
-            if (match(TokenType::COMMA)) {
-                advance();
-                if (!match(TokenType::RBRACK)) {
-                    elements.push_back(parse_expr());
-                }
-            }
-            continue;
-        }
-
-        advance();
-
-        if (match(TokenType::RBRACK)) {
-            break;
-        }
-
-        elements.push_back(parse_expr());
-    }
-
-    if (!match(TokenType::RBRACK)) {
-        error("expected ']' at end of vector");
-        while (!match(TokenType::RBRACK) && !is_eof()) {
-            advance();
-        }
-        if (match(TokenType::RBRACK)) {
-            advance();
-        }
-        return std::make_shared<VectorNode>(std::move(elements));
-    }
-
-    advance();
-    return std::make_shared<VectorNode>(std::move(elements));
-}
 std::shared_ptr<ASTNode> Parser::parse() {
     static bool in_func = false;
     static bool in_loop = false;
@@ -497,10 +444,7 @@ std::shared_ptr<ProgramASTNode> Parser::parse_program() {
 
 std::shared_ptr<ExprNode> Parser::factor() {
     std::shared_ptr<ExprNode> fact = nullptr;
-    if (match(TokenType::IDENTIFIER) && cur().text == "vec") {
-        advance();
-        fact = parse_vector();
-    } else if (match(TokenType::NUM_LITERAL)) {
+    if (match(TokenType::NUM_LITERAL)) {
         fact = std::make_shared<NumberNode>(cur().text);
         advance();
     } else if (match(TokenType::LPAREN)) {

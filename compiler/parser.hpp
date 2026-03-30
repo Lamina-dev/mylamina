@@ -46,7 +46,6 @@ class LMC_API Parser {
     std::shared_ptr<ExprNode> parse_logical_and();
     std::shared_ptr<ExprNode> parse_relational();
     std::shared_ptr<ExprNode> parse_logical_or();
-    std::shared_ptr<VectorNode> parse_vector();
     std::shared_ptr<ASTNode> parse_funcdecl(bool has_block);
 
 public:

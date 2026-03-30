@@ -16,7 +16,6 @@
 #include "opcode.hpp"
 #include "vmcall.hpp"
 #include "../common.hpp"
-#include "../../runtime/builtins.hpp"
 
 namespace lmx {
 bool Generator::node_has_error = false;
@@ -50,22 +49,12 @@ bool Allocator::is_free(const size_t i) const {
     return bitset.test(i);
 }
 
-void Generator::add_builtins() const {
-    size_t base_index = runtime::builtins::builtin_start;
-    for (size_t i = 0; i < runtime::builtins::builtin_constants_count; i++) {
-        const auto&[name, value] = runtime::builtins::builtin_constants[i];
-        cur.back()->new_var(name, false, base_index);
-        base_index++;
-    }
-}
+
 
 Generator::Generator() {
     cur.push_back(std::make_unique<CompilingFrame>("global"));
     
-    add_builtins();
-    
-    DEBUG_LOG("Added builtin constants to compiling frame");
-    DEBUG_LOG("Builtin constants in compiling frame:");
+    DEBUG_LOG("Compiling frame created:");
     for (const auto& [name, info] : cur.back()->locals) {
         DEBUG_LOG_FMT("  %s: index=%d, mutable=%s", name.c_str(), info.second, info.first ? "true" : "false");
     }
@@ -96,7 +85,6 @@ size_t Generator::gen(std::shared_ptr<ASTNode> &n) {
         case NumLiteral: return gen_num(n);
         case StringLiteral: return gen_string(n);
         case BoolLiteral: return gen_bool(n);
-        case VectorLiteral: return gen_vector(n);
         case BlockStmt: return gen_block(n);
         case IfStmt: return gen_if(n);
         case FuncDecl: return gen_function(n);
@@ -480,53 +468,6 @@ size_t Generator::gen_bool(std::shared_ptr<ASTNode> &n) {
     LMXOpcodeEmitter::emit_mov_ri(ops, expr_ret_reg, node->b);
     expr_release = true;
     return expr_ret_reg;
-}
-
-size_t Generator::gen_vector(std::shared_ptr<ASTNode> &n) {
-    const auto node = std::static_pointer_cast<VectorNode>(std::move(n));
-    DEBUG_LOG("gen vector");
-    regs.print_regs();
-
-    const size_t vector_size = node->elements.size();
-    DEBUG_LOG("vector_size: " << vector_size);
-
-    std::vector<size_t> elem_regs;
-    elem_regs.reserve(node->elements.size());
-    
-    for (auto& elem : node->elements) {
-        std::shared_ptr<ASTNode> elem_node = elem;
-        DEBUG_LOG("Now processing: " << elem_node->kind << ": " << elem_node);
-        auto reg = gen(elem_node);
-        if (reg == -1) {
-            node_has_error = true;
-            return -1;
-        }
-        elem_regs.push_back(reg);
-        DEBUG_LOG("Pushed elem_regs:");
-        for (auto const& elem_in : elem_regs) DEBUG_LOG(elem_in);
-        regs.print_regs();
-    }
-    
-    for (auto reg : elem_regs) {
-        LMXOpcodeEmitter::emit_push(ops, reg);
-        DEBUG_LOG("Pushed r" << reg << " to stack");
-    }
-    
-    auto result_reg = regs.alloc();
-    LMXOpcodeEmitter::emit_create_vector(ops, result_reg, vector_size);
-    DEBUG_LOG("CREATE_VECTOR r" << result_reg << ", " << vector_size);
-    
-    for (const auto reg : elem_regs) {
-        regs.free(reg);
-        DEBUG_LOG("Freed register: " << reg);
-        regs.print_regs();
-    }
-    
-    expr_release = true;
-    
-    DEBUG_LOG("gen_vector finished, returning result_reg: " << result_reg);
-    regs.print_regs();
-    return result_reg;
 }
 
 size_t Generator::gen_block(std::shared_ptr<ASTNode> &n) {
