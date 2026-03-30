@@ -37,7 +37,7 @@ class LMC_API Parser {
 
     void print_error(const std::string &msg);
 
-    void error(const std::string& msg);
+    static void error(const std::string& msg);
 
     std::shared_ptr<BlockStmtNode> parse_block();
     std::shared_ptr<StringNode> parse_string();

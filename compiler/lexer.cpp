@@ -10,7 +10,7 @@
 
 namespace lmx {
 
-LMC_API std::ostream& operator<<(std::ostream& os, const Token& t) {
+std::ostream& operator<<(std::ostream& os, const Token& t) {
     os << "Token(";
     switch (t.type) {
     case TokenType::END_OF_FILE: os << "END_OF_FILE"; break;

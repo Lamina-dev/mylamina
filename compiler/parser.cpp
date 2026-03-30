@@ -3,6 +3,7 @@
 //
 
 #include "parser.hpp"
+#include <sstream>
 
 #include "debug.hpp"
 #include "../include/error.hpp"
