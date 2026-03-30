@@ -3,8 +3,12 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 file(GLOB_RECURSE RUNTIME_SRC *.cpp */*.cpp)
-add_library(lmvm SHARED ${RUNTIME_SRC}
-        builtins.cpp)
+if (NOT TARGET_WASM)
+    add_library(lmvm SHARED ${RUNTIME_SRC})
+else ()
+    add_library(lmvm STATIC ${RUNTIME_SRC})
+endif ()
+
 
 # Define cmake-build-debug macro for DLL export
 if(WIN32)
@@ -12,19 +16,18 @@ if(WIN32)
 endif()
 # 启用 FetchContent
 include(FetchContent)
-
-
-message(STATUS "downloading dyncall...")
-FetchContent_Declare(
+target_include_directories(lmvm PUBLIC ${CMAKE_SOURCE_DIR}/include)
+if (NOT WASM_TARGET)
+    message(STATUS "downloading dyncall...")
+    FetchContent_Declare(
         dyncall
         GIT_REPOSITORY https://github.com/ugexe/dyncall.git
         GIT_TAG        "r1.4"
         OVERRIDE_FIND_PACKAGE
         # 禁用更新检查
         UPDATE_DISCONNECTED ON
-)
-target_include_directories(lmvm PRIVATE ${CMAKE_BINARY_DIR}/_deps/dyncall-src)
-FetchContent_MakeAvailable(dyncall)
-
-target_include_directories(lmvm PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(lmvm dyncall_s dyncallback_s dynload_s)
+    )
+    target_include_directories(lmvm PRIVATE ${CMAKE_BINARY_DIR}/_deps/dyncall-src)
+    FetchContent_MakeAvailable(dyncall)
+    target_link_libraries(lmvm dyncall_s dyncallback_s dynload_s)
+endif ()
